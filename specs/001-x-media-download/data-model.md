@@ -14,14 +14,17 @@ The feature is stateless. These are in-memory domain/application values and requ
 | `limits` | `RequestLimits` | Immutable startup-validated policy |
 | `state` | `RequestState` | Monotonic transition below |
 
-No or multiple URLs produce `InvalidUrl`; a non-X URL produces `UnsupportedPlatform`. Raw payloads are not persisted/logged.
+No candidate, malformed sole candidate, multiple candidates, or over-limit input produces
+`InvalidUrl`; a syntactically valid URL outside the supported host/status allowlist produces
+`UnsupportedPostUrl`.
+Raw payloads are not persisted/logged.
 
 ## PostReference
 
 | Field | Type | Rules |
 |---|---|---|
 | `provider` | `'x'` | Only provider in this feature |
-| `postId` | numeric string | From accepted `/status/<id>` path |
+| `postId` | numeric string | 1–20 ASCII digits, first digit 1–9, from exact accepted status path |
 | `canonicalUrl` | URL value | HTTPS, allowed exact host, default port, no credentials, harmless query/fragment removed |
 
 Recognition/validation remain provider responsibilities. Application code treats this as opaque and does not know X variants.
@@ -69,11 +72,11 @@ ItemResult =
 RequestOutcome =
   Complete { ordered item results }
   Partial  { ordered item results, delivered count, failed positions }
-  Failed   { safe error code, ordered item results? }
-  Rejected { InvalidUrl | UnsupportedPlatform | ServiceBusy }
+  Failed   { safe error code, ordered item results? } // includes OperationTimedOut, OperationCancelled, DeliveryDestinationUnavailable
+  Rejected { InvalidUrl | UnsupportedPostUrl | ServiceBusy }
 ```
 
-Each item has one terminal result. An item failure does not stop later items unless the whole job is cancelled/timed out or the destination becomes globally unusable. User outcomes never contain causes, URLs, paths, process output, or stacks.
+Each item has one terminal result. Ordinary item failure does not stop later items. Caller/job/shutdown cancellation and deadline expiry stop the whole job; cancellation safely aborts in-progress work, cleanup and permit release occur in `finally`, and later positions become unattempted. `DeliveryDestinationUnavailable` stops later deliveries only after the adapter classifies an authoritative permanent destination-level rejection; item-local, transient, rate-limited, timeout, media-specific, and unknown Telegram errors do not do so. User outcomes never contain causes, URLs, paths, process output, or stacks.
 
 ## TemporaryWorkspace
 
@@ -90,15 +93,19 @@ Only generated basenames such as `item-0001.part` and `item-0001.mp4` are used. 
 
 ```text
 code:
-  InvalidUrl | UnsupportedPlatform | PostInaccessible | MediaNotFound |
+  InvalidUrl | UnsupportedPostUrl | PostInaccessible | MediaNotFound |
+  ProviderRateLimited | ProviderOutputInvalid | CleanupFailed |
   MediaDownloadFailed | MediaTooLarge | MediaProcessingFailed |
-  TelegramDeliveryFailed | OperationTimedOut | ServiceBusy
+  TelegramDeliveryFailed | DeliveryDestinationUnavailable | OperationTimedOut |
+  OperationCancelled | ServiceBusy
 stage:
   input | admission | provider | download | processing | delivery | cleanup
 retryable: boolean
 operatorContext?: bounded structured fields
 cause?: unknown (operator side only)
 ```
+
+`CleanupFailed` is a secondary logged-only lifecycle event, not a replacement request or item outcome.
 
 User copy is selected by code at the Telegram boundary. Third-party/error message strings never become copy or control flow.
 

@@ -2,10 +2,15 @@
 
 ## Accepted update
 
-- A Telegram text message in a chat where the bot can reply.
-- Exactly one unambiguous candidate URL; surrounding prose is allowed.
-- Only public X/Twitter status URLs are supported: canonical `https://x.com/<account>/status/<post-id>` and `https://twitter.com/<account>/status/<post-id>`, plus only enumerated variants.
-- Query/fragment data may be accepted but is discarded. Credentials, non-default ports, lookalike hosts, and non-post paths are rejected.
+- A Telegram text message in a chat where the bot can reply. Candidate-token precedence is:
+  zero tokens -> `InvalidUrl`; two or more tokens -> multiple-input `InvalidUrl` before parsing any
+  token; exactly one malformed token -> `InvalidUrl`.
+- Surrounding prose is allowed. Only a syntactically valid sole URL matching the supported HTTPS
+  X/Twitter host/status allowlist proceeds to discovery.
+- Only HTTPS public X/Twitter status URLs with the exact case-normalized hostname `x.com`, `www.x.com`, `twitter.com`, or `www.twitter.com` are supported.
+- The submitted post URL is validated as provided; input validation does not follow its redirects.
+  Query/fragment data is removed from canonical identity. Representation-download redirects follow
+  the separate Safe HTTP Downloader policy. Other hosts and non-post paths produce `UnsupportedPostUrl`.
 
 No URL, multiple URLs, or malformed/obscured URLs are rejected before discovery.
 
@@ -20,27 +25,36 @@ No URL, multiple URLs, or malformed/obscured URLs are rejected before discovery.
 
 Non-normative example: “Delivered 2 of 3 media items. Item 2 could not be sent. You can try again later.”
 
-## Failure categories
+## Canonical outcome taxonomy
 
-| Category | Required user meaning |
+The outcome codes and handling classes mirror the canonical taxonomy in `spec.md`.
+
+| Code | Class and required safe meaning |
 |---|---|
-| Invalid URL | Send exactly one valid URL/X post URL |
-| Unsupported platform | Only X/Twitter is supported |
-| Inaccessible post | Post may be private, deleted, restricted, or unavailable |
-| No supported media | No supported video/animated media |
-| Retrieval failure | Item could not be downloaded; retry may help |
-| Too large | Item exceeds current send limit |
-| Processing failure | Item could not be prepared |
-| Delivery failure | Prepared item could not be sent |
-| Timeout | Bounded operation stopped; retry may help |
-| Busy | Capacity is full; retry shortly |
+| `InvalidUrl` | User-sendable rejection: ask for exactly one URL. |
+| `UnsupportedPostUrl` | User-sendable rejection: ask for a supported HTTPS X/Twitter status URL. |
+| `PostInaccessible` | User-sendable request outcome: post cannot be accessed; check access or retry later. |
+| `MediaNotFound` | User-sendable request outcome: no supported video or animated media was found. |
+| `ProviderRateLimited` | User-sendable request outcome: provider temporarily limited access; retry later. |
+| `ProviderOutputInvalid` | User-sendable request outcome: media details could not be read safely; retry later. |
+| `MediaDownloadFailed` | Item-level: this item could not be retrieved; later items continue. |
+| `MediaTooLarge` | Item-level: this item exceeds the configured media limit. |
+| `MediaProcessingFailed` | Item-level: no directly deliverable representation is available or preparation failed. |
+| `TelegramDeliveryFailed` | Item-level: this item could not be sent; later items continue. |
+| `OperationTimedOut` | Request-wide terminal: preserve successes; send timeout/partial copy only while delivery is usable. |
+| `OperationCancelled` | Request-wide terminal: preserve successes; send cancellation/partial copy only while delivery is usable. |
+| `ServiceBusy` | User-sendable rejection: capacity is full; retry shortly. |
+| `DeliveryDestinationUnavailable` | Logged-only request-wide terminal: stop delivery, preserve successes, suppress final send. |
+| `CleanupFailed` | Logged-only secondary event: safe operator context only; preserve the primary outcome. |
 
 Never return stacks, raw third-party errors, process output, paths, tokens, headers, internal host/IP details, or the submitted URL in an error response.
 
 ## Partial and terminal rules
 
-- One item failure does not skip later items.
-- A job-wide cancellation/deadline may stop remaining work; delivered items are not retracted.
+- An isolated retrieval, preparation, or ordinary Telegram delivery failure affects that item only and does not skip later items.
+- Caller/job/shutdown cancellation is request-wide. It stops in-progress work safely, prevents remaining items from starting, preserves delivered items, and classifies remaining positions as unattempted due to cancellation.
+- `DeliveryDestinationUnavailable` is request-wide only after an authoritative permanent destination rejection: blocked bot, removed bot, missing/inaccessible chat, missing send permission, or another adapter-classified permanent equivalent. Media-specific rejection, upload failure, timeout, rate limit, transient network/server failure, and unknown Telegram error do not establish it.
+- A deadline/cancellation partial with one or more delivered items sends a safe summary that distinguishes failed from unattempted positions. If no item was delivered after cancellation, send concise safe cancellation copy. After `DeliveryDestinationUnavailable`, retain only the safe typed/logged outcome and do not attempt another Telegram message.
 - If zero items succeed, use the most actionable safe category and optionally failed positions without diagnostics.
 - Duplicate updates are not persistently deduplicated in this stateless MVP and may produce another delivery.
 
@@ -51,6 +65,6 @@ Never return stacks, raw third-party errors, process output, paths, tokens, head
 - Use individual messages, not media groups.
 - Pass the originating opaque destination through the request for every item/summary. Concurrency tests prove destinations cannot cross.
 
-## Commands and non-text updates
+## Non-text updates
 
-Only the URL workflow is required. Optional `/start` or `/help` may state that one public X/Twitter post URL is accepted, but never advertise other platforms. Non-text updates consistently receive no response or a short URL instruction and never start discovery.
+Only the text-message URL workflow is required. Non-text updates are ignored without a response and never start discovery. The MVP defines no `/start` or `/help` behavior.

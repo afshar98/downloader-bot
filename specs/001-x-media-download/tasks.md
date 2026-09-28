@@ -33,7 +33,7 @@ description: "Implementation tasks for X/Twitter media download"
 
 - [ ] T008 Write unit tests for discriminated application errors, request/item outcomes, safe normalization, and user-safe error codes in `tests/unit/shared/errors.test.ts` and `tests/unit/application/outcomes.test.ts`
 - [ ] T009 Implement domain errors, request/item outcome types, and bounded operator context in `src/shared/errors.ts` and `src/application/outcomes.ts`
-- [ ] T010 [P] Write configuration validation tests for required token, numeric bounds, 49 MiB upper limit, absolute temp directory, log level, and defaults in `tests/unit/config/load-config.test.ts`
+- [ ] T010 [P] Write configuration validation tests for required token, every numeric cap/default (text/URL, media, metadata/stdout/stderr, redirects, jobs, stage/job/shutdown lifetimes), 49 MiB upper limit, absolute non-symlink writable temp directory, log level, and defaults in `tests/unit/config/load-config.test.ts`
 - [ ] T011 [P] Implement startup-only Zod configuration loading and immutable runtime configuration in `src/config/load-config.ts`
 - [ ] T012 [P] Write logger tests proving correlation/stage fields are retained and tokens, raw URLs, payloads, paths, and process output are redacted in `tests/unit/infrastructure/logger.test.ts`
 - [ ] T013 [P] Implement the structured Pino logger facade and static redaction policy in `src/infrastructure/logger.ts`
@@ -41,11 +41,11 @@ description: "Implementation tasks for X/Twitter media download"
 - [ ] T015 [P] Implement opaque request IDs, operation context, deadline composition, and cancellation helpers in `src/shared/identifiers.ts` and `src/application/operation-context.ts`
 - [ ] T016 [P] Write admission-control tests for FIFO queuing, active/queued limits, deadline expiry, busy mapping, and idempotent permit release in `tests/unit/infrastructure/admission-control.test.ts`
 - [ ] T017 [P] Implement bounded in-process admission control with no durable queue in `src/infrastructure/admission-control.ts`
-- [ ] T018 [P] Write temporary-workspace lifecycle tests covering unique names, traversal resistance, partial cleanup, idempotence, and cleanup-after-failure in `tests/unit/infrastructure/temporary-workspace.test.ts`
+- [ ] T018 [P] Write temporary-workspace lifecycle tests covering trusted-parent/symlink rejection, unique exclusive names, traversal resistance, partial/rename/create failure, cleanup idempotence, injected deletion failure logging, retry cleanup, and no residual controlled-root files in `tests/unit/infrastructure/temporary-workspace.test.ts`
 - [ ] T019 [P] Implement request-isolated temporary workspaces, generated item paths, and recursive cleanup in `src/infrastructure/temporary-workspace.ts`
-- [ ] T020 [P] Write process-runner tests for argument-array execution, shell disabled, stdout/stderr caps, timeout, cancellation, non-zero exit, and child cleanup in `tests/unit/infrastructure/process-runner.test.ts`
+- [ ] T020 [P] Write process-runner tests for argument-array execution, shell disabled, exact stdout/stderr caps, timeout, cancellation, non-zero exit, bounded grace/child cleanup, and startup version prerequisite in `tests/unit/infrastructure/process-runner.test.ts`
 - [ ] T021 [P] Implement the bounded direct-spawn process runner with `shell: false`, controlled cwd/env, output caps, and termination handling in `src/infrastructure/process-runner.ts`
-- [ ] T022 [P] Write safe URL/HTTP policy tests for HTTPS-only URLs, credentials/ports, DNS/private ranges, redirect revalidation/caps, content-length, streamed overflow, and timeouts in `tests/unit/infrastructure/safe-http-client.test.ts`
+- [ ] T022 [P] Write safe URL/HTTP policy tests for HTTPS-only URLs, credentials/ports, DNS/private ranges, relative/missing/malformed/loop/downgrade redirects and revalidation/caps, identity encoding, type/zero body, declared/lying/missing length, exact-one-byte streamed overflow/partial deletion, and timeouts in `tests/unit/infrastructure/safe-http-client.test.ts`
 - [ ] T023 [P] Implement the Undici-based safe HTTP client with manual redirects, DNS/IP validation, connection pinning, byte counting, and bounded response bodies in `src/infrastructure/safe-http-client.ts`
 - [ ] T024 Define provider-neutral ports for provider, downloader, processor, delivery, process runner, workspace, admission, and safe HTTP in `src/application/ports.ts`
 - [ ] T025 Add shared domain types for post references, discovered media, representations, downloaded/prepared media, destinations, limits, and request state in `src/application/models.ts`
@@ -62,27 +62,27 @@ description: "Implementation tasks for X/Twitter media download"
 
 ### Tests for User Story 1 (write first and verify they fail)
 
-- [ ] T026 [P] [US1] Write X URL recognition/validation tests for allowed hosts/variants and rejection of mobile, short, HTTP, credential, port, lookalike, and non-status forms in `tests/unit/providers/x/x-url.test.ts`
-- [ ] T027 [P] [US1] Write yt-dlp fixture tests for validated JSON, inaccessible/no-media mapping, supported filtering, source order, malformed/capped output, and timeout mapping in `tests/unit/providers/x/x-media-provider.test.ts`
-- [ ] T028 [P] [US1] Write representation-selection tests for progressive HTTPS MP4 filtering, quality ranking, size-aware fallback, unknown-size caps, and no-direct-representation failure in `tests/unit/media/representation-selector.test.ts`
-- [ ] T029 [P] [US1] Write streaming downloader tests for generated paths, safe redirects, status/type validation, declared/actual size limits, partial cleanup, and finalized output in `tests/unit/media/safe-media-downloader.test.ts`
-- [ ] T030 [P] [US1] Write direct processor tests proving compatible MP4 is returned unchanged and incompatible media maps to `MediaProcessingFailed` without FFmpeg in `tests/unit/media/direct-media-processor.test.ts`
-- [ ] T031 [P] [US1] Write delivery adapter tests for destination isolation, video upload, timeout, Telegram error normalization, and no diagnostic leakage in `tests/unit/bot/telegram-delivery.test.ts`
-- [ ] T032 [P] [US1] Write application workflow tests for discovery, ordered per-item processing, delivery, permit release, and workspace cleanup in `tests/unit/application/download-post-media.test.ts`
-- [ ] T033 [US1] Write deterministic end-to-end US1 coverage with fake ports and checked-in fixtures in `tests/integration/us1-download-video.test.ts`
+- [ ] T026 [US1] Create checked-in yt-dlp provider fixtures, deterministic fake ports, injected clock/identifier helpers, and builders required by US1 tests under `tests/fixtures/` and `tests/support/`
+- [ ] T027 [P] [US1] Write X URL tests for exact ASCII username/status-ID grammar, punctuation/Markdown extraction, malformed/multiple/split tokens, encoded/Unicode lookalikes, query/fragment canonicalization, multiple-token rejection before parsing, and `InvalidUrl` versus `UnsupportedPostUrl` outcomes in `tests/unit/providers/x/x-url.test.ts`
+- [ ] T028 [P] [US1] Write yt-dlp fixture tests for inaccessible/no-media/rate-limit mapping, supported filtering/source order, malformed/capped/empty/null/duplicate-ID/extreme-metadata output rejection, timeout mapping, and metadata-only canonical-URL process invocation in `tests/unit/providers/x/x-media-provider.test.ts`
+- [ ] T029 [P] [US1] Write representation-selection tests for progressive HTTPS MP4/direct-send eligibility, video/animation method, total quality ordering with missing metadata, known-size exclusion, unknown-size streaming cap, and no-direct-representation failure in `tests/unit/media/representation-selector.test.ts`
+- [ ] T030 [P] [US1] Write streaming downloader tests for generated paths, complete safe redirect policy, identity/type/zero-body validation, declared/missing/lying length, exact byte cap and one-byte overflow, midstream disconnect, partial cleanup, and finalized output in `tests/unit/media/safe-media-downloader.test.ts`
+- [ ] T031 [P] [US1] Write direct processor tests proving compatible MP4 is returned unchanged and incompatible media maps to `MediaProcessingFailed` without FFmpeg in `tests/unit/media/direct-media-processor.test.ts`
+- [ ] T032 [P] [US1] Write delivery adapter tests for destination isolation, video upload, timeout, Telegram error normalization, and no diagnostic leakage in `tests/unit/bot/telegram-delivery.test.ts`
+- [ ] T033 [P] [US1] Write application workflow tests for discovery, ordered per-item processing, delivery, permit release, workspace cleanup, provider-output failure mapping, and deterministic shutdown cancellation of queued/active work in `tests/unit/application/download-post-media.test.ts`
+- [ ] T034 [US1] Write deterministic end-to-end US1 coverage with T026 support, including the SC-002 100-valid-request workload with one-to-four media items at most 1 MiB, maximum concurrency two without queue saturation, injected dependency latency at most 100 ms, monotonic handler-entry-to-terminal timing, nearest-rank p95 at most two minutes, and no live network in `tests/integration/us1-download-video.test.ts` and `tests/acceptance/valid-request-performance.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T034 [US1] Implement strict X/Twitter status URL parsing and canonical post-reference validation in `src/providers/x/x-url.ts`
-- [ ] T035 [US1] Implement bounded yt-dlp metadata schema validation and provider-neutral mapping in `src/providers/x/yt-dlp-schema.ts`
-- [ ] T036 [US1] Implement `MediaProvider` and X provider using the process runner, pinned executable configuration, metadata-only arguments, and safe error mapping in `src/providers/media-provider.ts` and `src/providers/x/x-media-provider.ts`
-- [ ] T037 [US1] Implement deterministic best-first direct-representation selection in `src/media/representation-selector.ts`
-- [ ] T038 [US1] Implement streamed media downloading through the safe HTTP client with generated workspace files, timeout/cap enforcement, and partial cleanup in `src/media/safe-media-downloader.ts`
-- [ ] T039 [US1] Implement the direct media processor that validates Telegram-compatible MP4 delivery and never transcodes in `src/media/direct-media-processor.ts`
-- [ ] T040 [US1] Implement Telegram delivery using grammY API calls, per-item timeout, video upload, and opaque destination handling in `src/bot/telegram-delivery.ts`
-- [ ] T041 [US1] Implement use-case orchestration, admission/job deadline, item continuation, ordered results, and workspace cleanup in `src/application/download-post-media.ts`
-- [ ] T042 [US1] Implement grammY long-polling transport with thin handlers, safe outcome mapping, and bounded runner shutdown in `src/bot/telegram-bot.ts` and `src/index.ts`
-- [ ] T043 [US1] Add provider fixtures and fake-port builders for deterministic tests under `tests/fixtures/` and `tests/support/`
+- [ ] T035 [US1] Implement strict X/Twitter status URL parsing and canonical post-reference validation in `src/providers/x/x-url.ts`
+- [ ] T036 [US1] Implement bounded yt-dlp metadata schema validation and provider-neutral mapping in `src/providers/x/yt-dlp-schema.ts`
+- [ ] T037 [US1] Implement `MediaProvider` and X provider using the process runner, pinned executable configuration, metadata-only arguments, and safe error mapping in `src/providers/media-provider.ts` and `src/providers/x/x-media-provider.ts`
+- [ ] T038 [US1] Implement deterministic best-first direct-representation selection in `src/media/representation-selector.ts`
+- [ ] T039 [US1] Implement streamed media downloading through the safe HTTP client with generated workspace files, timeout/cap enforcement, and partial cleanup in `src/media/safe-media-downloader.ts`
+- [ ] T040 [US1] Implement the direct media processor that validates Telegram-compatible MP4 delivery and never transcodes in `src/media/direct-media-processor.ts`
+- [ ] T041 [US1] Implement Telegram delivery using grammY API calls, per-item timeout, video upload, and opaque destination handling in `src/bot/telegram-delivery.ts`
+- [ ] T042 [US1] Implement use-case orchestration, admission/job deadline, item continuation, ordered results, and workspace cleanup in `src/application/download-post-media.ts`
+- [ ] T043 [US1] Implement grammY long-polling transport with thin handlers, safe outcome mapping, and bounded runner shutdown in `src/bot/telegram-bot.ts` and `src/index.ts`
 
 **Checkpoint**: US1 works end-to-end without live X/Twitter or Telegram and passes lint, typecheck, tests, and build.
 
@@ -112,11 +112,11 @@ description: "Implementation tasks for X/Twitter media download"
 **Independent Test**: Exercise representative messages with a fake use case/provider and verify no discovery occurs and each category receives the expected response.
 
 - [ ] T050 [P] [US3] Write message URL extraction tests for prose, no URL, multiple URLs, split/obscured URLs, and exactly-one-candidate enforcement in `tests/unit/bot/message-url-extractor.test.ts`
-- [ ] T051 [P] [US3] Write transport tests for InvalidUrl, UnsupportedPlatform, unsupported X paths, and non-text updates with no provider call in `tests/unit/bot/telegram-bot-validation.test.ts`
+- [ ] T051 [P] [US3] Write transport tests for `InvalidUrl` and `UnsupportedPostUrl`, including unsupported hosts/paths, multiple-token precedence, and ignored non-text updates with no provider call in `tests/unit/bot/telegram-bot-validation.test.ts`
 - [ ] T052 [US3] Add deterministic integration coverage for all invalid-input scenarios in `tests/integration/us3-input-validation.test.ts`
-- [ ] T053 [US3] Implement bounded candidate URL extraction without logging or retaining raw message payloads in `src/bot/message-url-extractor.ts`
-- [ ] T054 [US3] Integrate extraction, provider recognition/validation, and category-specific safe responses in `src/bot/telegram-bot.ts`
-- [ ] T055 [US3] Add optional `/start` and `/help` guidance plus consistent non-text handling without advertising unsupported platforms in `src/bot/telegram-bot.ts`
+- [ ] T053 [US3] Add deterministic SC-003 acceptance coverage for 100 invalid/unsupported messages, maximum concurrency two, injected monotonic timing, nearest-rank p95 at most five seconds, fake response latency at most 100 ms, and zero provider/HTTP/filesystem/media calls in `tests/acceptance/input-validation-performance.test.ts`
+- [ ] T054 [US3] Implement bounded candidate URL extraction without logging or retaining raw message payloads in `src/bot/message-url-extractor.ts`
+- [ ] T055 [US3] Integrate extraction, provider recognition/validation, ignored non-text updates, and category-specific safe responses in `src/bot/telegram-bot.ts`
 
 **Checkpoint**: Invalid or unsupported messages finish quickly without yt-dlp, HTTP, filesystem, or media calls.
 
@@ -128,16 +128,17 @@ description: "Implementation tasks for X/Twitter media download"
 
 **Independent Test**: Inject each failure category into fake ports, verify safe mapping and cleanup, then run a later success and concurrent cross-chat isolation test.
 
-- [ ] T056 [P] [US4] Write error-to-user-copy tests for every error code, no stacks/URLs/paths/secrets, and zero-success versus partial summaries in `tests/unit/bot/error-mapping.test.ts`
-- [ ] T057 [P] [US4] Write workflow tests for per-item continuation, position summaries, deadline cancellation after prior success, unattempted reporting, and global destination failure in `tests/unit/application/partial-results.test.ts`
-- [ ] T058 [P] [US4] Write cleanup/recovery tests for download/process/delivery/timeout/cancellation failures, cleanup errors, later requests, duplicate submissions, and independent workspaces in `tests/integration/us4-failure-lifecycle.test.ts`
-- [ ] T059 [P] [US4] Write concurrency/admission tests for active/queued jobs, busy responses, same-post duplicates, and no cross-chat delivery in `tests/integration/concurrency-isolation.test.ts`
-- [ ] T060 [US4] Add controlled process integration tests for yt-dlp timeout, non-zero exit, malformed/capped output, and cancellation in `tests/integration/process-runner.integration.test.ts`
-- [ ] T061 [US4] Implement stable error normalization, retryability, and stage-aware logging for provider/download/process/delivery/timeout failures in `src/shared/errors.ts` and `src/application/download-post-media.ts`
-- [ ] T062 [US4] Implement per-item results, deadline-aware stop-before-next-item behavior, partial summaries, and duplicate-independent execution in `src/application/download-post-media.ts` and `src/application/outcomes.ts`
-- [ ] T063 [US4] Implement concise safe Telegram messages for complete, partial, failed, rejected, timed-out, and busy outcomes in `src/bot/telegram-bot.ts`
-- [ ] T064 [US4] Add structured lifecycle logs and cleanup-failure handling with request correlation, stage, item position, duration, and stable code in `src/application/download-post-media.ts`, `src/infrastructure/logger.ts`, and `src/infrastructure/temporary-workspace.ts`
-- [ ] T065 [US4] Add graceful polling shutdown, active-job cancellation/grace handling, and resource closure in `src/bot/telegram-bot.ts` and `src/index.ts`
+- [ ] T056 [P] [US4] Write table-driven SC-006 tests for every user-sendable and item-level taxonomy outcome, `ProviderRateLimited`/`ProviderOutputInvalid` safe copy, distinct timeout/cancellation copy, and logged-only/no-send behavior for `DeliveryDestinationUnavailable`/`CleanupFailed`; verify partial status, retry guidance, and diagnostic redaction in `tests/unit/bot/error-mapping.test.ts`
+- [ ] T057 [P] [US4] Write workflow tests for cancellation before delivery, after one or more deliveries, and during an item; assert safe in-progress stop, no remaining-item attempts, delivered-item preservation, unattempted-cancelled positions, usable-destination partial summary or zero-delivery `OperationCancelled`, cleanup, and permit release in `tests/unit/application/partial-results.test.ts`
+- [ ] T058 [P] [US4] Write Telegram delivery classification tests proving authoritative blocked/removed/missing/inaccessible/permission-denied destination responses become `DeliveryDestinationUnavailable`, stop later deliveries, preserve prior deliveries, suppress final summary, and log only safe stable context in `tests/unit/bot/telegram-delivery-destination.test.ts`
+- [ ] T059 [P] [US4] Before implementation, author failing tests for the exact SC-005 100-request fixture in `tests/acceptance/mixed-request-isolation.test.ts`: 40 successes, 15 isolated item failures, 10 no-direct-representation failures, 10 size-boundary cases (5 at limit/5 one byte over), 10 duplicate/resubmission requests as five original/duplicate pairs, 5 timeout partials, 5 cancellation partials, and 5 busy rejections (total 100); use default 2-active/8-queued admission, gate two active requests, fill eight queue slots, submit five and assert `ServiceBusy`, then release and batch the remainder without saturation. Assert workspace/path isolation, chat destination isolation, permits, resource closure, and no residual files. Also author deterministic failing graceful-shutdown lifecycle coverage in `tests/integration/shutdown-lifecycle.test.ts` with fake time/controlled ports: assert stop polling/new admission; cancel queued work; signal active cancellation; abort HTTP; terminate child processes; clean workspaces; release permits; stop runner; honor the configured 30-second grace bound without waiting 30 seconds; and suppress unsafe sends. Preserve existing ordinary-versus-transient Telegram classification and concurrent isolation coverage in `tests/integration/us4-failure-lifecycle.test.ts` and `tests/integration/concurrency-isolation.test.ts`.
+- [ ] T060 [US4] Create the controlled child-process fixture and process-test support required by integration tests under `tests/fixtures/process/` and `tests/support/process/`
+- [ ] T061 [US4] Add controlled process integration tests using T060 support for yt-dlp timeout, non-zero exit, malformed/capped output, and cancellation in `tests/integration/process-runner.integration.test.ts`
+- [ ] T062 [US4] Implement canonical taxonomy normalization and safe mappings, including provider rate-limit/output-invalid categories; classify `DeliveryDestinationUnavailable` only from authoritative permanent destination responses and retain stage-aware safe logging in `src/shared/errors.ts`, `src/bot/telegram-delivery.ts`, and `src/application/download-post-media.ts`
+- [ ] T063 [US4] Implement per-item results, isolated-failure continuation, request-wide cancellation stop of in-progress/remaining work, destination-unavailable stop of later deliveries, failed-versus-unattempted partial summaries, cleanup/permit release in `finally`, and duplicate-independent execution in `src/application/download-post-media.ts` and `src/application/outcomes.ts`
+- [ ] T064 [US4] Implement safe Telegram mappings for every user-sendable taxonomy outcome, including `UnsupportedPostUrl`, `ProviderRateLimited`, and `ProviderOutputInvalid`, plus complete/partial/item outcomes; suppress a final summary after `DeliveryDestinationUnavailable` in `src/bot/telegram-bot.ts`
+- [ ] T065 [US4] Add structured lifecycle logs and cleanup-failure handling with request correlation, stage, item position, duration, stable code, and safe destination-unavailable context without Telegram payloads/tokens/URLs/paths in `src/application/download-post-media.ts`, `src/infrastructure/logger.ts`, and `src/infrastructure/temporary-workspace.ts`
+- [ ] T066 [US4] Add graceful polling shutdown, active-job cancellation/grace handling, and resource closure in `src/bot/telegram-bot.ts` and `src/index.ts`
 
 **Checkpoint**: Every defined failure is actionable; failed jobs do not crash polling; successes are preserved; later/concurrent jobs stay isolated.
 
@@ -145,13 +146,12 @@ description: "Implementation tasks for X/Twitter media download"
 
 ## Phase 7: Polish & Cross-Cutting Verification
 
-- [ ] T066 [P] Reconcile `plan.md` wording with clarified mobile-host rejection and confirm direct-only/no-FFmpeg/49 MiB decisions in `specs/001-x-media-download/plan.md` and `specs/001-x-media-download/research.md`
 - [ ] T067 [P] Document yt-dlp pinning, installation/licensing considerations, and opt-in live-provider tests in `README.md` and `docs/yt-dlp.md`
 - [ ] T068 [P] Document SSRF, resource limits, temp ownership, secret handling, and log redaction in `docs/security.md`
 - [ ] T069 [P] Validate the quickstart from a clean environment and update commands/configuration examples in `specs/001-x-media-download/quickstart.md`
-- [ ] T070 Add deterministic acceptance fixtures for success, partial success, all failure categories, 49 MiB boundary, duplicate updates, and 100-request isolation in `tests/acceptance/`
-- [ ] T071 Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`; fix defects without weakening strictness or security
-- [ ] T072 Verify normal tests require no live network and record opt-in integration commands in `README.md`
+- [ ] T070 Run and reconcile deterministic acceptance coverage authored before implementation in T034, T046, T053, and T056–T059 for SC-002/SC-003 timing, the exact SC-005 fixture, all taxonomy mappings, partial/shutdown lifecycle, destination-unavailable no-send behavior, 49 MiB boundary, duplicate updates, isolation, and cleanup in `tests/acceptance/`
+- [ ] T071 Verify normal tests require no live network and record opt-in integration commands in `README.md`
+- [ ] T072 Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`; fix defects without weakening strictness or security
 
 ---
 
@@ -182,20 +182,21 @@ description: "Implementation tasks for X/Twitter media download"
 
 - T002–T006 are independent after T001.
 - Foundational test/implementation pairs T010–T023 can proceed in separate files; T024–T025 finalize shared contracts before integration.
-- US1 tests T026–T032 are parallelizable; T034–T040 are parallelizable once ports/fixtures exist, with T041/T042 integrating sequentially.
+- T026 creates US1 test support before any fixture-dependent test; T027–T033 are then parallelizable. T035–T041 are parallelizable once ports and fixtures exist, with T042/T043 integrating sequentially.
 - US2, US3, and US4 test groups can run in parallel after Foundational, avoiding simultaneous edits to shared integration files.
-- T066–T069 are parallelizable; T071 is the final gate.
+- T060 creates controlled-process support before T061. T067–T069 are parallelizable; T072 is the final gate.
 
 ### Parallel Example: User Story 1
 
 ```text
-T026 URL validation tests
-T027 yt-dlp/provider fixture tests
-T028 representation selection tests
-T029 streaming downloader tests
-T030 direct processor tests
-T031 Telegram delivery adapter tests
-T032 application workflow tests
+T026 checked-in fixtures, fake ports, clocks, IDs, and builders
+T027 URL validation tests
+T028 yt-dlp/provider fixture tests
+T029 representation selection tests
+T030 streaming downloader tests
+T031 direct processor tests
+T032 Telegram delivery adapter tests
+T033 application workflow tests
 ```
 
 ## Implementation Strategy
@@ -210,7 +211,7 @@ T032 application workflow tests
 ### Incremental Delivery
 
 1. Add US2 animation delivery while preserving direct-MP4 behavior.
-2. Add US3 validation/help behavior without retrieval for rejected messages.
+2. Add US3 validation behavior without retrieval for rejected messages; ignore non-text updates and add no optional command behavior.
 3. Add US4 partial outcomes, timeouts, cleanup, concurrency isolation, and safe mapping.
 4. Complete operational documentation and acceptance fixtures.
 

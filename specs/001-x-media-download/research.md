@@ -26,6 +26,8 @@
 ## 3. X extraction and yt-dlp
 
 **Decision**: Implement the X provider with a pinned external [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) executable in metadata-only mode behind `MediaProvider` and `ProcessRunner`.
+The provider accepts only HTTPS status URLs on `x.com`, `www.x.com`, `twitter.com`, or `www.twitter.com`; it rejects `mobile.twitter.com`, `t.co`, HTTP, and every other host. Query and fragment data may be accepted after whole-URL validation but is removed from the canonical post reference.
+
 
 **Rationale**: yt-dlp has an actively maintained Twitter extractor for public x.com/twitter.com posts, cards, and multi-entry results. Structured output includes formats, dimensions, codecs, protocols, and size estimates. It consolidates volatile guest-token/GraphQL/syndication behavior. `--dump-single-json --skip-download` separates discovery from the secured application downloader. A single entry or playlist `entries` maps to source-ordered provider-neutral values. Fixtures and a fake runner keep unit tests deterministic.
 
@@ -34,6 +36,12 @@ Hardened arguments include `--ignore-config`, `--no-plugin-dirs`, `--no-remote-c
 **Tradeoffs**: yt-dlp adds a Python/standalone deployment artifact and needs deliberate updates as X changes. Public posts normally need no user credentials, but deletion, privacy, age/region restrictions, and rate limits still fail safely. Check the version at startup, pin artifact/checksum, and forbid runtime self-update.
 
 **Licensing/deployment**: Source/PyPI is Unlicense. The Unix zipimport artifact includes ISC/MIT components; PyInstaller standalone builds include GPLv3+ code. Select and pin deliberately and ship applicable notices; see [licensing](https://github.com/yt-dlp/yt-dlp/blob/master/README.md#licensing) and [third-party licenses](https://github.com/yt-dlp/yt-dlp/blob/master/THIRD_PARTY_LICENSES.txt).
+
+**Operational ownership**: Dependency maintenance owns the deployed yt-dlp artifact and Telegram
+Bot API compatibility assumption. Pin the approved version and provenance record; verify
+checksum/signature where the distribution supplies one; disable self-update; and review on an
+extractor regression, upstream security release, Bot API format/limit change, or planned upgrade.
+The deployment ships the license notices applicable to the chosen artifact.
 
 **Alternatives considered**:
 

@@ -32,4 +32,6 @@
 ## Notes
 
 - Validation completed after clarifying that every supported media item in a post is attempted
-  independently and partial delivery failures do not prevent remaining delivery attempts.
+  independently and isolated item failures do not prevent remaining delivery attempts.
+- Revalidated after analysis remediation: request-wide terminal conditions bound continuation;
+  host rules are exhaustive; SC-002, SC-003, and SC-006 are deterministic and reviewable.

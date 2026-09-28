@@ -19,13 +19,17 @@ It orchestrates validation, admission, workspace, discovery, selection, per-item
 
 ```text
 recognizes(candidate: URL) -> boolean
-validate(candidate: URL) -> PostReference | InvalidUrl
+validate(candidate: URL) -> PostReference | InvalidUrl | UnsupportedPostUrl
 resolve(post: PostReference, context: OperationContext)
   -> Promise<readonly DiscoveredMedia[]>
 ```
 
-- Recognition performs no network/process work; validation checks the entire provider URL.
-- Resolve returns provider-neutral validated supported items in source order and distinguishes `PostInaccessible`, `MediaNotFound`, and timeout.
+- Recognition performs no network/process work; validation applies submitted-URL-only host/status
+  validation and never follows submitted post redirects.
+- Resolve returns provider-neutral validated supported items in source order and distinguishes
+  `PostInaccessible`, `MediaNotFound`, `ProviderRateLimited`, `ProviderOutputInvalid`, and timeout.
+  It receives only the canonical allowed post URL; yt-dlp egress is separate from `SafeHttpClient`
+  controls, has no cookies/credentials/plugins/remote components, and is metadata-only.
 - Compose one `XMediaProvider` directly; no registry/plugin lifecycle.
 
 ## ProcessRunner
@@ -51,7 +55,10 @@ select(media: DiscoveredMedia, limits: DeliveryLimits)
   -> readonly MediaRepresentation[]
 ```
 
-Pure/deterministic; returns a non-empty best-first bounded fallback list or a typed size/compatibility error. Provider metadata is advisory.
+Pure/deterministic; retains only progressive HTTPS MP4 direct-send candidates and orders known size
+eligibility, direct-compatibility evidence, pixel area, bitrate, duration, then source index; absent
+or invalid numeric values compare as zero and unknown size is stream-enforced. It returns a non-empty
+best-first bounded fallback list or a typed size/compatibility error. Provider metadata is advisory.
 
 ## MediaDownloader
 
@@ -65,7 +72,7 @@ download({
 }) -> Promise<DownloadedMedia>
 ```
 
-Owns URL, DNS, connected-address, redirect, status/type, timeout, byte, stream, and partial-file enforcement. It uses generated workspace paths and returns only a complete finalized file with stable error mapping.
+Owns URL, DNS, connected-address, redirect, status/type, timeout, byte, stream, and partial-file enforcement. It uses `Accept-Encoding: identity`, rejects non-identity encoding, zero/invalid type bodies, missing or malformed redirect locations, loops, and unsafe revalidated hops; `Content-Length` is advisory and the first byte above the cap aborts/deletes the partial. It uses generated workspace paths and returns only a complete finalized file with stable error mapping.
 
 ## MediaProcessor
 
@@ -85,7 +92,7 @@ deliver(destination: DeliveryDestination,
   -> Promise<DeliveredReceipt>
 ```
 
-Uploads to the exact originating destination, selects video/animation from prepared media, applies a finite deadline, and exposes no Telegram types/errors inward.
+Uploads to the exact originating destination, selects video/animation from prepared media, applies a finite deadline, and exposes no Telegram types/errors inward. It returns `DeliveryDestinationUnavailable` only for an authoritative permanent destination-level rejection (blocked bot, removed bot, missing/inaccessible destination, missing send permission, or an explicitly permanent equivalent). Individual upload failures, transient network/server failures, timeouts, rate limits, media-specific rejections, and unknown errors remain `TelegramDeliveryFailed` or their existing typed error.
 
 ## TemporaryWorkspaceFactory
 
@@ -94,7 +101,11 @@ create(requestId: RequestId) -> Promise<TemporaryWorkspace>
 cleanup(workspace: TemporaryWorkspace) -> Promise<void>
 ```
 
-Creates a unique directory under the trusted parent and generates all item paths. Cleanup is idempotent, recursive, and always called from use-case `finally`.
+Creates a unique directory under a startup-validated writable non-symlink parent and generates only
+exclusive, application-owned paths below it. `.part` and final files remain on the same filesystem;
+rename failure is an item failure. Cleanup is idempotent, recursive, and always called from use-case
+`finally`; a cleanup failure emits `CleanupFailed` safe structured context without replacing the
+primary outcome.
 
 ## AdmissionControl
 
@@ -112,12 +123,15 @@ The infrastructure client accepts only a URL, adapter-selected safe headers, sig
 1. validates scheme, credentials, port, length, and IP literals;
 2. resolves all A/AAAA records and rejects the host if any are non-global;
 3. connects through lookup/connector bound to a validated address;
-4. disables automatic redirects and repeats validation for `Location`;
-5. caps redirects and destroys prior response bodies;
+4. disables automatic redirects, resolves relative `Location`, and repeats full validation;
+5. rejects malformed/missing location, loop, downgrade, credentials/port change, or new non-global
+   destination; caps redirects and destroys prior response bodies;
 6. exposes only successful bounded responses.
 
 ## Logger, errors, and cancellation
 
 The small structured logger permits correlation ID, provider, stage, item position, duration, stable code, and bounded non-sensitive metrics; callers do not pass raw external objects.
 
-Every async port accepts caller cancellation. Job and stage deadlines compose; the earliest wins. Timeout remains distinguishable from network/process/delivery failure. Expected failures use discriminated `ApplicationError`; unknown faults are safely normalized at transport and never crash polling or reveal diagnostics.
+Every async port accepts caller cancellation. Job and stage deadlines compose; the earliest wins. `OperationTimedOut` represents a deadline expiry; `OperationCancelled` represents caller/job/shutdown cancellation. Expected failures use discriminated `ApplicationError`; unknown faults are safely normalized at transport and never crash polling or reveal diagnostics.
+
+Outcome codes and handling classes mirror the canonical taxonomy in `spec.md`. An isolated retrieval, preparation, or ordinary delivery error produces an item result and orchestration continues with the next supported item. Caller/job cancellation is request-wide: it aborts the in-progress operation safely, stops before every remaining item, preserves delivered items, cleans up owned resources, and releases admission in `finally`. `DeliveryDestinationUnavailable` is logged-only and request-wide after authoritative adapter classification; it stops later deliveries and suppresses a final Telegram summary. Remaining positions are typed as unattempted for the terminal reason. A safe partial summary is requested only when at least one item was delivered and the destination remains usable.

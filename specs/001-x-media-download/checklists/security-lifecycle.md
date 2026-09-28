@@ -10,70 +10,70 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Are the accepted X/Twitter hostname variants enumerated exhaustively rather than described as variants that may be “explicitly enumerated” later? [Completeness, Ambiguity, Spec §FR-002, Plan §X provider and process]
-- [ ] CHK002 Are maximum Telegram message length, candidate URL length, provider metadata size, and external-process output limits specified with concrete values or derivation rules? [Gap, Spec §FR-015, Plan §Safe HTTP download]
-- [ ] CHK003 Are outbound-network requirements defined separately for the yt-dlp extraction process and the application-controlled media downloader, including what destinations each may contact? [Completeness, Gap, Spec §FR-004, Plan §X provider and process]
-- [ ] CHK004 Are all acquired resource types covered by ownership and release requirements, including HTTP bodies/sockets, child processes, admission permits, temporary files, and runner resources? [Completeness, Spec §FR-016, Constitution §II]
-- [ ] CHK005 Are requirements documented for configuration validation failures, unavailable yt-dlp, unwritable temporary storage, and insufficient startup prerequisites before polling begins? [Coverage, Gap, Plan §Configuration and Operations]
-- [ ] CHK006 Are shutdown requirements complete for queued jobs, active extraction/download/delivery operations, child processes, HTTP resources, and temporary workspaces? [Completeness, Plan §Concurrency and Resource Ownership]
+- [x] CHK001 Are the accepted X/Twitter hostname variants enumerated exhaustively rather than described as variants that may be “explicitly enumerated” later? [Completeness, Ambiguity, Spec §FR-002, Plan §X provider and process]
+- [x] CHK002 Are maximum Telegram message length, candidate URL length, provider metadata size, and external-process output limits specified with concrete values or derivation rules? [Gap, Spec §FR-015, Plan §Safe HTTP download]
+- [x] CHK003 Are outbound-network requirements defined separately for the yt-dlp extraction process and the application-controlled media downloader, including what destinations each may contact? [Completeness, Gap, Spec §FR-004, Plan §X provider and process]
+- [x] CHK004 Are all acquired resource types covered by ownership and release requirements, including HTTP bodies/sockets, child processes, admission permits, temporary files, and runner resources? [Completeness, Spec §FR-016, Constitution §II]
+- [x] CHK005 Are requirements documented for configuration validation failures, unavailable yt-dlp, unwritable temporary storage, and insufficient startup prerequisites before polling begins? [Coverage, Gap, Plan §Configuration and Operations]
+- [x] CHK006 Are shutdown requirements complete for queued jobs, active extraction/download/delivery operations, child processes, HTTP resources, and temporary workspaces? [Completeness, Plan §Concurrency and Resource Ownership]
 
 ## Requirement Clarity
 
-- [ ] CHK007 Is “exactly one candidate URL” defined precisely enough to classify punctuation, Markdown links, URL-like text, percent encoding, Unicode hostnames, and obscured/split URLs consistently? [Clarity, Ambiguity, Spec §FR-001, Spec §FR-003]
-- [ ] CHK008 Is “highest-quality available representation compatible with successful delivery” expressed as an unambiguous ordering and tie-break policy when size, dimensions, bitrate, duration, or codec metadata is missing? [Clarity, Spec §FR-008, Plan §Architecture and Workflow]
-- [ ] CHK009 Are “unsafe or disallowed destinations” defined through an exhaustive address/scheme/port/redirect policy, including IPv4-mapped IPv6 and mixed public/private DNS answers? [Clarity, Spec §FR-004, Plan §Safe HTTP download]
-- [ ] CHK010 Is the distinction between an inaccessible post, no supported media, provider/extraction failure, and rate limiting clear enough to assign one stable error category? [Clarity, Spec §FR-005, Spec §FR-013]
-- [ ] CHK011 Is “usable quality” after required transformation quantified or explicitly bounded so it can be reviewed objectively? [Ambiguity, Spec §FR-011]
-- [ ] CHK012 Are the exact representation-specific failures eligible for lower-quality fallback distinguished from terminal policy, timeout, cancellation, network, and ambiguous failures? [Clarity, Plan §Safe HTTP download]
+- [x] CHK007 Is “exactly one candidate URL” defined precisely enough to classify punctuation, Markdown links, URL-like text, percent encoding, Unicode hostnames, and obscured/split URLs consistently? [Clarity, Ambiguity, Spec §FR-001, Spec §FR-003]
+- [x] CHK008 Is “highest-quality available representation compatible with successful delivery” expressed as an unambiguous ordering and tie-break policy when size, dimensions, bitrate, duration, or codec metadata is missing? [Clarity, Spec §FR-008, Plan §Architecture and Workflow]
+- [x] CHK009 Are “unsafe or disallowed destinations” defined through an exhaustive address/scheme/port/redirect policy, including IPv4-mapped IPv6 and mixed public/private DNS answers? [Clarity, Spec §FR-004, Plan §Safe HTTP download]
+- [x] CHK010 Is the distinction between an inaccessible post, no supported media, provider/extraction failure, and rate limiting clear enough to assign one stable error category? [Clarity, Spec §FR-005, Spec §FR-013]
+- [x] CHK011 Is “usable quality” after required transformation quantified or explicitly bounded so it can be reviewed objectively? [Ambiguity, Spec §FR-011]
+- [x] CHK012 Are the exact representation-specific failures eligible for lower-quality fallback distinguished from terminal policy, timeout, cancellation, network, and ambiguous failures? [Clarity, Plan §Safe HTTP download]
 
 ## Requirement Consistency
 
-- [ ] CHK013 Is the specification’s requirement to transform media when necessary consistent with the plan’s no-FFmpeg direct-MP4 MVP, including a defined outcome when no directly compatible progressive MP4 exists? [Consistency, Spec §FR-011, Plan §Media processing]
-- [ ] CHK014 Is the specification’s “delivery failure” outcome consistent with the plan’s separate `MediaTooLarge`, `OperationTimedOut`, and `ServiceBusy` categories, and are all additional categories reflected in user-facing requirements? [Consistency, Spec §FR-013, Plan §Error Model and User Mapping]
-- [ ] CHK015 Are per-stage timeouts, the 115-second job deadline, and the two-minute success criterion mutually consistent for multi-item posts and queued requests? [Consistency, Spec §SC-002, Plan §Technical Context]
-- [ ] CHK016 Is the requirement to attempt every supported item reconciled with job-wide cancellation/deadline behavior that may leave later items unattempted? [Conflict, Spec §FR-010, Spec §FR-015, Plan §Architecture and Workflow]
-- [ ] CHK017 Are source-order requirements consistent across provider discovery, representation fallback, individual Telegram delivery, and partial-failure reporting? [Consistency, Spec §FR-010, Plan §Telegram transport and delivery]
-- [ ] CHK018 Is the future-provider extensibility requirement consistent with the explicit decision not to introduce a provider registry or plugin framework for this feature? [Consistency, Spec §FR-020, Plan §Project Structure]
+- [x] CHK013 Is the specification’s requirement to transform media when necessary consistent with the plan’s no-FFmpeg direct-MP4 MVP, including a defined outcome when no directly compatible progressive MP4 exists? [Consistency, Spec §FR-011, Plan §Media processing]
+- [x] CHK014 Is the specification’s “delivery failure” outcome consistent with the plan’s separate `MediaTooLarge`, `OperationTimedOut`, and `ServiceBusy` categories, and are all additional categories reflected in user-facing requirements? [Consistency, Spec §FR-013, Plan §Error Model and User Mapping]
+- [x] CHK015 Are per-stage timeouts, the 115-second job deadline, and the two-minute success criterion mutually consistent for multi-item posts and queued requests? [Consistency, Spec §SC-002, Plan §Technical Context]
+- [x] CHK016 Is the requirement to attempt every supported item reconciled with job-wide cancellation/deadline behavior that may leave later items unattempted? [Conflict, Spec §FR-010, Spec §FR-015, Plan §Architecture and Workflow]
+- [x] CHK017 Are source-order requirements consistent across provider discovery, representation fallback, individual Telegram delivery, and partial-failure reporting? [Consistency, Spec §FR-010, Plan §Telegram transport and delivery]
+- [x] CHK018 Is the future-provider extensibility requirement consistent with the explicit decision not to introduce a provider registry or plugin framework for this feature? [Consistency, Spec §FR-020, Plan §Project Structure]
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK019 Is “normal operating conditions” defined with workload, network, media-size, concurrency, and dependency-health assumptions for the two-minute and five-second targets? [Measurability, Ambiguity, Spec §SC-002, Spec §SC-003]
-- [ ] CHK020 Is “deliverable supported item” defined objectively for SC-001, including format, size, duration, codec, and Telegram acceptance constraints? [Measurability, Spec §SC-001]
-- [ ] CHK021 Does SC-005 define the 100-request workload mix, concurrency profile, media sizes, failure distribution, and observation point for proving isolation and cleanup? [Measurability, Spec §SC-005]
-- [ ] CHK022 Are cleanup acceptance criteria measurable when deletion itself fails, including the expected operator signal and whether residual resources make the criterion fail? [Acceptance Criteria, Gap, Spec §FR-016, Plan §Architecture and Workflow]
-- [ ] CHK023 Are the usability-review population, task, scoring method, and threshold interpretation specified for the 90% comprehension target? [Measurability, Spec §SC-006]
+- [x] CHK019 Are the controlled SC-002 and SC-003 workloads defined with sample size, fixture characteristics, concurrency, dependency behavior, timing boundaries, percentile calculation, and no mandatory live network? [Measurability, Spec §SC-002, Spec §SC-003]
+- [x] CHK020 Is “deliverable supported item” defined objectively for SC-001, including format, size, duration, codec, and Telegram acceptance constraints? [Measurability, Spec §SC-001]
+- [x] CHK021 Does SC-005 define the 100-request workload mix, concurrency profile, media sizes, failure distribution, and observation point for proving isolation and cleanup? [Measurability, Spec §SC-005]
+- [x] CHK022 Are cleanup acceptance criteria measurable when deletion itself fails, including the expected operator signal and whether residual resources make the criterion fail? [Acceptance Criteria, Gap, Spec §FR-016, Plan §Architecture and Workflow]
+- [x] CHK023 Does SC-006 replace subjective user-study language with a deterministic, table-driven review of status, corrective-versus-retry guidance, failed-versus-unattempted wording, and redaction for every outcome? [Measurability, Spec §SC-006]
 
 ## Scenario Coverage
 
-- [ ] CHK024 Are primary, partial-success, total-failure, cancellation, timeout, busy-capacity, and graceful-shutdown scenarios all represented by requirements and terminal outcomes? [Coverage, Spec §FR-010, Spec §FR-013–FR-017]
-- [ ] CHK025 Are requirements defined for a job deadline expiring after some items are delivered but before every remaining item is attempted, including the final summary semantics? [Recovery Flow, Gap, Spec §FR-010, Spec §FR-015]
-- [ ] CHK026 Are requirements defined for Telegram delivery becoming globally unusable mid-job, and is the condition for stopping later delivery attempts distinguished from an isolated item failure? [Exception Flow, Gap, Plan §Application Port Contracts: MediaDelivery]
-- [ ] CHK027 Are recovery requirements clear when cleanup, process termination, or permit release encounters a secondary failure after the primary outcome is already known? [Recovery Flow, Spec §FR-016, Plan §Architecture and Workflow]
-- [ ] CHK028 Are duplicate-update and resubmission semantics explicitly accepted as at-least-once delivery behavior, including whether user feedback should acknowledge possible duplicates? [Coverage, Assumption, Spec §Edge Cases, Plan §Telegram Bot Interaction Contract]
+- [x] CHK024 Are primary, partial-success, total-failure, cancellation, timeout, busy-capacity, and graceful-shutdown scenarios all represented by requirements and terminal outcomes? [Coverage, Spec §FR-010, Spec §FR-013–FR-017]
+- [x] CHK025 Are requirements defined for a job deadline expiring after some items are delivered but before every remaining item is attempted, including the final summary semantics? [Recovery Flow, Gap, Spec §FR-010, Spec §FR-015]
+- [x] CHK026 Are requirements defined for Telegram delivery becoming globally unusable mid-job, and is the condition for stopping later delivery attempts distinguished from an isolated item failure? [Exception Flow, Gap, Plan §Application Port Contracts: MediaDelivery]
+- [x] CHK027 Are recovery requirements clear when cleanup, process termination, or permit release encounters a secondary failure after the primary outcome is already known? [Recovery Flow, Spec §FR-016, Plan §Architecture and Workflow]
+- [x] CHK028 Are duplicate-update and resubmission semantics explicitly accepted as at-least-once delivery behavior, including whether user feedback should acknowledge possible duplicates? [Coverage, Assumption, Spec §Edge Cases, Plan §Telegram Bot Interaction Contract]
 
 ## Edge Case Coverage
 
-- [ ] CHK029 Are redirect requirements complete for relative locations, loops, missing/malformed `Location`, scheme or port changes, credentials, and public-to-private DNS transitions? [Edge Case, Spec §FR-002, Spec §FR-004]
-- [ ] CHK030 Are media-response requirements defined for missing or false `Content-Length`, unexpected content type, compressed transfer, zero-byte body, midstream disconnect, and data exceeding the limit by one byte? [Edge Case, Gap, Plan §Safe HTTP download]
-- [ ] CHK031 Are metadata requirements defined for missing/duplicate media IDs, empty playlists, null entries, extreme numeric values, unsafe filenames, and partially valid multi-entry provider output? [Edge Case, Spec §FR-004, Spec §Edge Cases]
-- [ ] CHK032 Are filesystem requirements clear for symlinked/configured temp parents, name collisions, exclusive creation failure, cross-device finalization, and partially removed workspaces? [Edge Case, Gap, Constitution §II]
-- [ ] CHK033 Are concurrency requirements defined for simultaneous identical posts, queue saturation, queue-wait timeout, cancellation while queued, and fairness between chats? [Edge Case, Spec §FR-018, Plan §Concurrency and Resource Ownership]
+- [x] CHK029 Are redirect requirements complete for relative locations, loops, missing/malformed `Location`, scheme or port changes, credentials, and public-to-private DNS transitions? [Edge Case, Spec §FR-002, Spec §FR-004]
+- [x] CHK030 Are media-response requirements defined for missing or false `Content-Length`, unexpected content type, compressed transfer, zero-byte body, midstream disconnect, and data exceeding the limit by one byte? [Edge Case, Gap, Plan §Safe HTTP download]
+- [x] CHK031 Are metadata requirements defined for missing/duplicate media IDs, empty playlists, null entries, extreme numeric values, unsafe filenames, and partially valid multi-entry provider output? [Edge Case, Spec §FR-004, Spec §Edge Cases]
+- [x] CHK032 Are filesystem requirements clear for symlinked/configured temp parents, name collisions, exclusive creation failure, cross-device finalization, and partially removed workspaces? [Edge Case, Gap, Constitution §II]
+- [x] CHK033 Are concurrency requirements defined for simultaneous identical posts, queue saturation, queue-wait timeout, cancellation while queued, and fairness between chats? [Edge Case, Spec §FR-018, Plan §Concurrency and Resource Ownership]
 
 ## Non-Functional Requirements
 
-- [ ] CHK034 Are all resource caps numerically specified or tied to validated configuration, including disk, active jobs, queued jobs, redirects, process output, metadata, open connections, and process lifetime? [Completeness, Gap, Spec §FR-015]
-- [ ] CHK035 Are logging requirements sufficiently specific about permitted identifiers, URL redaction, error-cause handling, retention destination, and secret fields to prevent sensitive-data ambiguity? [Security, Clarity, Spec §FR-014, Plan §Configuration and Operations]
-- [ ] CHK036 Are deterministic-test requirements explicit about injected time, identifiers, DNS, process execution, filesystem roots, and disabled live network, without requiring implementation-specific internal mocks? [Quality, Constitution §IV, Plan §Testing Strategy]
-- [ ] CHK037 Are operational egress controls described as a required deployment constraint or clearly labeled defense in depth, so responsibility is not ambiguous? [Security, Ambiguity, Plan §Safe HTTP download]
+- [x] CHK034 Are all resource caps numerically specified or tied to validated configuration, including disk, active jobs, queued jobs, redirects, process output, metadata, open connections, and process lifetime? [Completeness, Gap, Spec §FR-015]
+- [x] CHK035 Are logging requirements sufficiently specific about permitted identifiers, URL redaction, error-cause handling, retention destination, and secret fields to prevent sensitive-data ambiguity? [Security, Clarity, Spec §FR-014, Plan §Configuration and Operations]
+- [x] CHK036 Are deterministic-test requirements explicit about injected time, identifiers, DNS, process execution, filesystem roots, and disabled live network, without requiring implementation-specific internal mocks? [Quality, Constitution §IV, Plan §Testing Strategy]
+- [x] CHK037 Are operational egress controls described as a required deployment constraint or clearly labeled defense in depth, so responsibility is not ambiguous? [Security, Ambiguity, Plan §Safe HTTP download]
 
 ## Dependencies & Assumptions
 
-- [ ] CHK038 Are Telegram cloud Bot API size/format limits and yt-dlp/X behavior documented as versioned external assumptions with an owner or review trigger when they change? [Dependency, Assumption, Spec §Assumptions, Research §Telegram/X]
-- [ ] CHK039 Are yt-dlp artifact choice, version/checksum pinning, update cadence, and applicable third-party license obligations stated as deployment requirements rather than informal guidance? [Dependency, Completeness, Plan §X provider and process]
+- [x] CHK038 Are Telegram cloud Bot API size/format limits and yt-dlp/X behavior documented as versioned external assumptions with an owner or review trigger when they change? [Dependency, Assumption, Spec §Assumptions, Research §Telegram/X]
+- [x] CHK039 Are yt-dlp artifact choice, version/checksum pinning, update cadence, and applicable third-party license obligations stated as deployment requirements rather than informal guidance? [Dependency, Completeness, Plan §X provider and process]
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK040 Is the exact user-facing distinction between malformed input and a well-formed but unsupported X/Twitter non-post URL specified consistently across acceptance scenarios and the error model? [Ambiguity, Spec §User Story 3, Plan §Error Model and User Mapping]
+- [x] CHK040 Is the exact user-facing distinction between malformed input and a well-formed but unsupported X/Twitter non-post URL specified consistently across acceptance scenarios and the error model? [Ambiguity, Spec §User Story 3, Plan §Error Model and User Mapping]
 
 ## Notes
 
