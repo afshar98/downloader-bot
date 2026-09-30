@@ -1,6 +1,6 @@
 # Quickstart and Validation Guide
 
-This is the runnable validation target for the planned implementation. The repository is currently specification-only; listed package files/scripts and `.env.example` are implementation prerequisites, not claims they exist now.
+This quickstart documents the implemented service and its deterministic validation gates.
 
 ## Prerequisites
 
@@ -63,7 +63,7 @@ Production SSRF policy must never be relaxed for local-server tests.
 Live tests are opt-in and excluded from gates. After deterministic gates pass:
 
 ```bash
-npm run dev -- --env-file=.env
+npm run dev
 ```
 
 Manually check one public in-limit video, one animation, one multiple-media post, invalid/unsupported input, and shutdown during download. Verify same-chat delivery, clear partial results, no extraction on invalid input, graceful stop, and no residual workspace.
