@@ -1,0 +1,65 @@
+{
+  "_type": "playlist",
+  "id": "post-100",
+  "entries": [
+    {
+      "id": "video-1",
+      "ext": "mp4",
+      "formats": [
+        {
+          "format_id": "low",
+          "url": "https://media.example.invalid/video-1-low.mp4",
+          "protocol": "https",
+          "ext": "mp4",
+          "vcodec": "avc1.64001f",
+          "acodec": "mp4a.40.2",
+          "width": 640,
+          "height": 360,
+          "tbr": 600,
+          "filesize": 1000000,
+          "duration": 12.5
+        },
+        {
+          "format_id": "high",
+          "url": "https://media.example.invalid/video-1-high.mp4",
+          "protocol": "https",
+          "ext": "mp4",
+          "vcodec": "avc1.640028",
+          "acodec": "mp4a.40.2",
+          "width": 1280,
+          "height": 720,
+          "tbr": 2500,
+          "filesize": 8000000,
+          "duration": 12.5
+        },
+        {
+          "format_id": "hls",
+          "url": "https://media.example.invalid/video-1.m3u8",
+          "protocol": "m3u8_native",
+          "ext": "mp4",
+          "vcodec": "avc1",
+          "acodec": "mp4a.40.2"
+        }
+      ]
+    },
+    {
+      "id": "video-2",
+      "ext": "mp4",
+      "formats": [
+        {
+          "format_id": "video-2",
+          "url": "https://media.example.invalid/video-2.mp4",
+          "protocol": "https",
+          "ext": "mp4",
+          "vcodec": "avc1.64001f",
+          "acodec": "mp4a.40.2",
+          "width": 720,
+          "height": 1280,
+          "tbr": 1600,
+          "filesize": 4000000,
+          "duration": 8
+        }
+      ]
+    }
+  ]
+}

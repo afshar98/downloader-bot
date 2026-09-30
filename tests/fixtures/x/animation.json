@@ -1,0 +1,40 @@
+{
+  "_type": "playlist",
+  "id": "animation-post",
+  "entries": [
+    {
+      "id": "animated-gif",
+      "ext": "gif",
+      "media_type": "gif",
+      "formats": [
+        {
+          "format_id": "animation-mp4",
+          "url": "https://media.example.invalid/animation.mp4",
+          "protocol": "https",
+          "ext": "mp4",
+          "vcodec": "avc1.4d401f",
+          "acodec": "none",
+          "width": 720,
+          "height": 720,
+          "tbr": 850,
+          "filesize": 900000,
+          "duration": 3
+        }
+      ]
+    },
+    {
+      "id": "static-image",
+      "ext": "jpg",
+      "formats": [
+        {
+          "format_id": "image",
+          "url": "https://media.example.invalid/image.jpg",
+          "protocol": "https",
+          "ext": "jpg",
+          "vcodec": "none",
+          "acodec": "none"
+        }
+      ]
+    }
+  ]
+}
