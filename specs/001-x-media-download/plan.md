@@ -144,6 +144,7 @@ Item outcomes retain one-based source position. Final responses report counts/po
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | required | Non-empty secret; never logged |
 | `YT_DLP_PATH` | `yt-dlp` | Trusted executable name/path |
+| `YT_DLP_EXPECTED_VERSION` | required | Exact approved output from `yt-dlp --version`; startup must match before polling |
 | `EXTRACTION_TIMEOUT_MS` | `30000` | Bounded extraction deadline |
 | `DOWNLOAD_TIMEOUT_MS` | `60000` | Absolute per-attempt deadline |
 | `PROCESSING_TIMEOUT_MS` | `60000` | Processing-port bound |
