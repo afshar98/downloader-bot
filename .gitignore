@@ -1,0 +1,29 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Node.js / TypeScript
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+
+# Temporary downloader workspaces
+.tmp/
+tmp/
+temp/
+media-workspaces/
+
+# Editor and operating system files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# Application temporary workspaces
+xmd-*/
