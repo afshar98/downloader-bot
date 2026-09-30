@@ -18,6 +18,8 @@ const formatSchema = z
     url: boundedText,
     protocol: z.string().min(1).max(64),
     ext: z.string().min(1).max(16),
+    video_ext: z.string().max(16).optional(),
+    audio_ext: z.string().max(16).optional(),
     vcodec: optionalCodec,
     acodec: optionalCodec,
     width: z.number().int().min(1).max(32_768).nullable().optional(),
@@ -100,22 +102,24 @@ function toRepresentation(
   format: ValidFormat,
   sourceIndex: number,
 ): MediaRepresentation | undefined {
-  if (!format.vcodec || format.vcodec.toLowerCase() === 'none') return undefined;
-
   let url: URL;
   try {
     url = new URL(format.url);
   } catch {
     return undefined;
   }
+  const videoCodec = format.vcodec ?? inferTwitterVideoCodec(url);
+  if (!videoCodec || videoCodec.toLowerCase() === 'none') return undefined;
+  const audioCodec =
+    format.acodec ?? (format.audio_ext?.toLowerCase() === 'none' ? 'none' : undefined);
   const sizeBytes = format.filesize ?? format.filesize_approx;
   return {
     representationId: format.format_id ?? `format-${sourceIndex}`,
     url,
     container: format.ext,
     protocol: format.protocol,
-    ...(format.vcodec !== undefined ? { videoCodec: format.vcodec } : {}),
-    ...(format.acodec !== undefined ? { audioCodec: format.acodec } : {}),
+    videoCodec,
+    ...(audioCodec !== undefined ? { audioCodec } : {}),
     ...(format.width != null ? { width: format.width } : {}),
     ...(format.height != null ? { height: format.height } : {}),
     ...(format.tbr != null ? { bitrate: format.tbr } : {}),
@@ -123,6 +127,13 @@ function toRepresentation(
     ...(format.duration != null ? { durationSeconds: format.duration } : {}),
     sourceIndex,
   };
+}
+
+function inferTwitterVideoCodec(url: URL): string | undefined {
+  if (!['video.twimg.com', 'video.twitter.com'].includes(url.hostname.toLowerCase())) {
+    return undefined;
+  }
+  return /(?:^|\/)vid\/avc1(?:\/|$)/i.test(url.pathname) ? 'avc1' : undefined;
 }
 
 function isDomainError(error: unknown): error is { code: string; stage: string } {
