@@ -27,3 +27,6 @@ Thumbs.db
 
 # Application temporary workspaces
 xmd-*/
+
+# Git worktrees
+.worktrees/
