@@ -12,6 +12,7 @@ describe('yt-dlp direct Twitter formats', () => {
     const [media] = parseYtDlpMetadata(metadata, 1_048_576);
 
     expect(media).toBeDefined();
+    expect(media?.kind).toBe('animation');
     expect(new RepresentationSelector().select(media!, { maxMediaBytes: 51_380_224 })).toHaveLength(
       2,
     );
