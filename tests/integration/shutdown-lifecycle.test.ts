@@ -50,6 +50,25 @@ describe('graceful polling shutdown', () => {
     expect(closeResources).toHaveBeenCalledTimes(1);
   });
 
+  it('applies one shutdown grace bound to both polling stop and process resource drain', async () => {
+    const controller = new AbortController();
+    const closeResources = vi.fn(async () => new Promise<void>(() => {}));
+    const wait = vi.fn(async (_promise: Promise<void>, timeoutMs: number) => {
+      expect(timeoutMs).toBe(25);
+      expect(closeResources).toHaveBeenCalledTimes(1);
+      return false;
+    });
+    const completed = await stopLongPolling(
+      { stop: async () => {} },
+      controller,
+      25,
+      closeResources,
+      wait,
+    );
+    expect(completed).toBe(false);
+    expect(controller.signal.aborted).toBe(true);
+  });
+
   it('cancels queued and active jobs, aborts download work, cleans workspaces, and releases permits', async () => {
     const root = await mkdtemp(join(tmpdir(), 'shutdown-integration-'));
     try {

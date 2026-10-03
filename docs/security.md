@@ -24,6 +24,16 @@ are removed, and the workspace is recursively cleaned in a `finally` path. The d
 MiB per media item, two active jobs, and eight queued jobs. Do not place secrets or user-selected
 paths in workspaces.
 
+## FFmpeg processing
+
+FFmpeg is an explicitly configured trusted local executable. Startup checks its first reported
+version token against `FFMPEG_EXPECTED_VERSION` before polling. Conversion uses fixed argument
+arrays and local workspace paths, disables external references/protocols, caps output bytes and
+runtime, and validates the complete GIF by decoding it before delivery. The per-allocation memory
+guard does not bound total FFmpeg process RSS; provision deployment memory for decoded frames and
+filter buffers. Shutdown aborts active work and bounds child/resource closure by the configured
+grace period.
+
 ## Secrets and logs
 
 Keep `TELEGRAM_BOT_TOKEN` in the deployment secret store or ignored local `.env`. Never print

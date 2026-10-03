@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:ffmpeg": "vitest run --config vitest.ffmpeg.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

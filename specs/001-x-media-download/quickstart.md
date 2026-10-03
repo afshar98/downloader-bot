@@ -1,8 +1,6 @@
 # Quickstart and Validation Guide
 
-This quickstart retains the implemented service gates and defines validation of the planned
-sound-aware completion. FFmpeg configuration, conversion, and `test:ffmpeg` are planned work,
-not runnable capabilities added by this documentation checkpoint.
+This quickstart records the implemented service gates and sound-aware media processing behavior.
 
 ## Prerequisites
 
@@ -25,7 +23,6 @@ cp .env.example .env
 ```
 
 Set `TELEGRAM_BOT_TOKEN` only for manual operation. Keep `.env` ignored; never commit/print the token.
-During configuration implementation, `.env.example` will gain placeholder-only FFmpeg settings.
 Set the approved FFmpeg path/version locally using the configuration contract in [plan.md](./plan.md).
 No live credential is required for deterministic or controlled binary integration tests.
 
@@ -83,20 +80,17 @@ Production SSRF policy must never be relaxed for local-server tests.
 
 ### Required controlled FFmpeg lane after implementation
 
-The integration owner adds an explicit `npm run test:ffmpeg` script and separate Vitest integration
-configuration so default `npm test` remains binary-free. It must not silently skip when the approved
-binary is missing/mismatched. After setting only the trusted executable path/approved token for
-that lane, run:
+An explicit `npm run test:ffmpeg` script and separate Vitest configuration keep default `npm test`
+binary-free. The lane fails when the approved binary is missing or mismatched. After setting its
+trusted executable path and approved token, run:
 
 ```bash
 npm run test:ffmpeg
 ```
 
-This command is planned and does not exist yet. Its fixture creates or uses a tiny synthetic local
-MP4 with known silent frames; conversion produces a decodable real GIF within the configured cap,
-with correct frame/profile properties and exact uploaded-artifact assertions through fake Telegram.
-Include missing-trailer, truncated-after-valid-frame, broken-block, and strict decode failures,
-plus controlled child timeout/cancellation and test-root cleanup. Use no live X, Telegram, or network.
+The checked-in synthetic silent MP4 produces a decodable real GIF within the configured cap, with
+frame/profile checks and exact uploaded-artifact assertions through fake Telegram. This lane uses
+no live X, Telegram, or network.
 See [research decisions](./research.md#11-sound-aware-completion-decisions) and
 [shared contracts](./contracts/sound-aware-media.md) for validation and ownership details.
 

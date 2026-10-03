@@ -13,7 +13,6 @@
           "protocol": "https",
           "ext": "mp4",
           "vcodec": "avc1.4d401f",
-          "acodec": "none",
           "width": 720,
           "height": 720,
           "tbr": 850,

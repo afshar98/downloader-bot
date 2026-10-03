@@ -1,4 +1,4 @@
-import type { DeliveryDestination, DownloadLimits } from './models.js';
+import type { DeliveryDestination, DownloadLimits, ProcessingBudget } from './models.js';
 import type {
   AdmissionControlPort,
   LifecycleLogger,
@@ -8,7 +8,11 @@ import type {
   MediaProvider,
   TemporaryWorkspacePort,
 } from './ports.js';
-import { createOperationContext, type OperationContext } from './operation-context.js';
+import {
+  createOperationContext,
+  type OperationContext,
+  type StageSignal,
+} from './operation-context.js';
 import {
   deliveredItem,
   failedItem,
@@ -40,9 +44,12 @@ export type DownloadPostMediaOptions = Readonly<{
     maxMediaBytes: number;
     jobTimeoutMs: number;
     downloadTimeoutMs: number;
+    processingTimeoutMs?: number;
     maxRedirects: number;
   }>;
   logger?: LifecycleLogger;
+  onFatalResourceFailure?: (reason: 'workspace-cleanup-incomplete') => void;
+  now?: () => number;
 }>;
 
 export type DownloadPostMediaInput = Readonly<{
@@ -57,7 +64,7 @@ export class DownloadPostMedia {
   constructor(private readonly options: DownloadPostMediaOptions) {}
 
   async execute(input: DownloadPostMediaInput): Promise<RequestOutcome> {
-    const startedAt = performance.now();
+    const startedAt = this.now();
     this.options.logger?.info(
       { requestId: input.requestId, stage: 'admission' },
       'download request received',
@@ -66,6 +73,7 @@ export class DownloadPostMedia {
       requestId: input.requestId,
       signal: input.signal,
       jobTimeoutMs: this.options.limits.jobTimeoutMs,
+      ...(this.options.now ? { now: this.options.now } : {}),
     });
     const itemResults: ItemResult[] = [];
     let outcome: RequestOutcome | undefined;
@@ -154,7 +162,7 @@ export class DownloadPostMedia {
       requestId: input.requestId,
       stage: 'closed',
       code,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      durationMs: Math.max(0, Math.round(this.now() - startedAt)),
     };
     if (code === 'DeliveryDestinationUnavailable' || code === 'CleanupFailed') {
       this.options.logger?.warn(fields, 'download request stopped');
@@ -206,65 +214,96 @@ export class DownloadPostMedia {
 
       let delivered = false;
       let itemError: ApplicationError | undefined;
+      let processingStage: StageSignal | undefined;
+      let processingBudget: ProcessingBudget | undefined;
+      const processingTimeoutMs = this.options.limits.processingTimeoutMs ?? 60_000;
       this.options.logger?.info(
         { requestId: context.requestId, stage: 'download', itemPosition: media.position },
         'media item started',
       );
-      for (let candidateIndex = 0; candidateIndex < selected.length; candidateIndex += 1) {
-        const representation = selected[candidateIndex];
-        if (!representation) continue;
-        try {
-          const downloadLimits: DownloadLimits = {
-            maxMediaBytes: this.options.limits.maxMediaBytes,
-            timeoutMs: this.options.limits.downloadTimeoutMs,
-            maxRedirects: this.options.limits.maxRedirects,
-          };
-          const downloadPermit = this.options.downloadAdmission
-            ? await this.options.downloadAdmission.acquire({
-                requestId: context.requestId,
-                deadlineAt: Math.min(
-                  context.deadlineAt,
-                  performance.now() + downloadLimits.timeoutMs,
-                ),
-                signal: context.signal,
-              })
-            : undefined;
-          let downloaded;
+      try {
+        for (let candidateIndex = 0; candidateIndex < selected.length; candidateIndex += 1) {
+          const representation = selected[candidateIndex];
+          if (!representation) continue;
+          let attemptError: ApplicationError | undefined;
           try {
-            downloaded = await this.options.downloader.download({
-              media,
-              representation,
+            if (processingBudget) assertBudget(processingBudget);
+            const downloadLimits: DownloadLimits = {
+              maxMediaBytes: this.options.limits.maxMediaBytes,
+              timeoutMs: this.options.limits.downloadTimeoutMs,
+              maxRedirects: this.options.limits.maxRedirects,
+            };
+            const downloadPermit = this.options.downloadAdmission
+              ? await this.options.downloadAdmission.acquire({
+                  requestId: context.requestId,
+                  deadlineAt: Math.min(
+                    context.deadlineAt,
+                    processingBudget?.deadlineAt ?? Number.POSITIVE_INFINITY,
+                    this.now() + downloadLimits.timeoutMs,
+                  ),
+                  signal: processingBudget?.signal ?? context.signal,
+                })
+              : undefined;
+            let downloaded;
+            try {
+              downloaded = await this.options.downloader.download({
+                media,
+                representation,
+                workspace,
+                limits: downloadLimits,
+                signal: processingBudget?.signal ?? context.signal,
+              });
+            } finally {
+              downloadPermit?.release();
+            }
+            if (!processingBudget) {
+              processingStage = context.createStageSignal('processing', processingTimeoutMs);
+              const startedAt = this.now();
+              const deadlineAt = Math.min(context.deadlineAt, startedAt + processingTimeoutMs);
+              processingBudget = {
+                signal: processingStage.signal,
+                deadlineAt,
+                remainingMs: () =>
+                  Math.max(0, Math.min(context.remainingMs(), deadlineAt - this.now())),
+              };
+            }
+            const prepared = await this.options.processor.prepare(
+              downloaded,
+              context,
               workspace,
-              limits: downloadLimits,
-              signal: context.signal,
-            });
-          } finally {
-            downloadPermit?.release();
+              processingBudget,
+            );
+            assertBudget(processingBudget);
+            await this.options.delivery.deliver(destination, prepared, context);
+            results.push(deliveredItem(media.position, media.mediaId));
+            delivered = true;
+          } catch (error) {
+            attemptError = normalizeApplicationError(error, 'MediaDownloadFailed', 'download');
           }
-          const prepared = await this.options.processor.prepare(
-            downloaded,
-            context,
-            workspace,
-            context,
-          );
-          await this.options.delivery.deliver(destination, prepared, context);
-          results.push(deliveredItem(media.position, media.mediaId));
-          delivered = true;
-          break;
-        } catch (error) {
-          const normalized = normalizeApplicationError(error, 'MediaDownloadFailed', 'download');
-          if (isRequestTerminal(normalized.code)) {
-            terminalError = normalized.code;
-            appendUnattempted(results, mediaItems, index, normalized.code);
+
+          if (!(await this.retireItem(workspace, context, media.position))) {
+            terminalError = 'OperationCancelled';
+            appendUnattempted(results, mediaItems, delivered ? index + 1 : index, terminalError);
             break;
           }
-          itemError = normalized;
-          const mayTryFallback =
-            candidateIndex + 1 < selected.length &&
-            (normalized.code === 'MediaTooLarge' || normalized.code === 'MediaProcessingFailed');
-          if (mayTryFallback) continue;
-          break;
+          if (delivered) break;
+          if (attemptError) {
+            if (isRequestTerminal(attemptError.code)) {
+              terminalError = attemptError.code;
+              appendUnattempted(results, mediaItems, index, attemptError.code);
+              break;
+            }
+            itemError = attemptError;
+            const mayTryFallback =
+              candidateIndex + 1 < selected.length &&
+              (attemptError.code === 'MediaTooLarge' ||
+                attemptError.code === 'MediaProcessingFailed');
+            if (mayTryFallback) continue;
+            break;
+          }
         }
+      } finally {
+        processingStage?.dispose();
       }
 
       if (terminalError) break;
@@ -297,6 +336,40 @@ export class DownloadPostMedia {
       return { kind: 'failed', errorCode: terminalError ?? 'MediaNotFound' };
     }
     return outcomeFromItems(results, terminalError);
+  }
+
+  private async retireItem(
+    workspace: Awaited<ReturnType<TemporaryWorkspacePort['create']>>,
+    context: OperationContext,
+    position: number,
+  ): Promise<boolean> {
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await workspace.removeItem(position);
+        return true;
+      } catch {
+        this.options.logger?.error(
+          {
+            requestId: context.requestId,
+            stage: 'cleanup',
+            itemPosition: position,
+            code: 'CleanupFailed',
+            attempt,
+          },
+          'media item cleanup failed',
+        );
+      }
+    }
+    try {
+      this.options.onFatalResourceFailure?.('workspace-cleanup-incomplete');
+    } catch {
+      // Preserve delivered items and the stable request outcome.
+    }
+    return false;
+  }
+
+  private now(): number {
+    return this.options.now?.() ?? performance.now();
   }
 }
 
@@ -343,4 +416,14 @@ function isRequestTerminal(code: ErrorCode): boolean {
 
 function terminalCode(value: unknown): ErrorCode | undefined {
   return isApplicationError(value) && isRequestTerminal(value.code) ? value.code : undefined;
+}
+
+function assertBudget(budget: ProcessingBudget): void {
+  if (budget.signal.aborted) {
+    throw normalizeApplicationError(budget.signal.reason, 'OperationCancelled', 'processing');
+  }
+  const remaining = budget.remainingMs();
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    throw applicationError('OperationTimedOut', 'processing');
+  }
 }

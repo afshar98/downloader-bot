@@ -13,7 +13,7 @@ describe('safe Telegram outcome mapping', () => {
     ['ProviderOutputInvalid', 'could not be read safely'],
     ['MediaDownloadFailed', 'could not be retrieved'],
     ['MediaTooLarge', 'size limit'],
-    ['MediaProcessingFailed', 'directly deliverable'],
+    ['MediaProcessingFailed', 'prepared safely'],
     ['TelegramDeliveryFailed', 'could not be sent'],
     ['OperationTimedOut', 'timed out'],
     ['OperationCancelled', 'cancelled'],
@@ -52,20 +52,29 @@ describe('safe Telegram outcome mapping', () => {
   it.each([
     ['OperationTimedOut', 'timed out'],
     ['OperationCancelled', 'cancelled'],
-  ] as const)('includes failed and unattempted items for zero-delivery %s', (terminalErrorCode, reason) => {
-    const copy = outcomeCopy({
-      kind: 'failed',
-      errorCode: terminalErrorCode,
-      items: [
-        { kind: 'failed', position: 1, mediaId: 'private', errorCode: 'MediaDownloadFailed', retryable: true },
-        { kind: 'unattempted', position: 2, reason: terminalErrorCode },
-      ],
-    });
-    expect(copy).toContain('item 1 could not be retrieved');
-    expect(copy).toContain('Not attempted: item 2');
-    expect(copy).toContain(reason);
-    expect(copy).not.toContain('private');
-  });
+  ] as const)(
+    'includes failed and unattempted items for zero-delivery %s',
+    (terminalErrorCode, reason) => {
+      const copy = outcomeCopy({
+        kind: 'failed',
+        errorCode: terminalErrorCode,
+        items: [
+          {
+            kind: 'failed',
+            position: 1,
+            mediaId: 'private',
+            errorCode: 'MediaDownloadFailed',
+            retryable: true,
+          },
+          { kind: 'unattempted', position: 2, reason: terminalErrorCode },
+        ],
+      });
+      expect(copy).toContain('item 1 could not be retrieved');
+      expect(copy).toContain('Not attempted: item 2');
+      expect(copy).toContain(reason);
+      expect(copy).not.toContain('private');
+    },
+  );
 
   it('reports retry guidance for retryable isolated failures', () => {
     expect(
@@ -120,7 +129,7 @@ describe('safe Telegram outcome mapping', () => {
   it.each([
     ['MediaDownloadFailed', 'could not be retrieved'],
     ['MediaTooLarge', 'exceeds the configured size limit'],
-    ['MediaProcessingFailed', 'no directly deliverable representation'],
+    ['MediaProcessingFailed', 'prepared safely for delivery'],
     ['TelegramDeliveryFailed', 'could not be sent'],
   ] as const)('describes item failure %s in failed and partial outcomes', (errorCode, copy) => {
     const failedItem = {

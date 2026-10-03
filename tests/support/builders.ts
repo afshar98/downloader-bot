@@ -6,13 +6,10 @@ import type {
 } from '../../src/application/models.js';
 
 export function representation(overrides: Partial<MediaRepresentation> = {}): MediaRepresentation {
+  const audioCodec = overrides.audioCodec === undefined ? 'mp4a.40.2' : overrides.audioCodec;
   const audioEvidence =
     overrides.audioEvidence ??
-    (overrides.audioCodec?.trim().toLowerCase() === 'none'
-      ? 'absent'
-      : overrides.audioCodec
-        ? 'present'
-        : 'unknown');
+    (audioCodec?.trim().toLowerCase() === 'none' ? 'absent' : audioCodec ? 'present' : 'unknown');
   return {
     representationId: 'format-1',
     url: new URL('https://media.example.invalid/video.mp4'),

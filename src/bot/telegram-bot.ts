@@ -45,10 +45,13 @@ export async function stopLongPolling(
   wait: (promise: Promise<void>, timeoutMs: number) => Promise<boolean> = waitWithin,
 ): Promise<boolean> {
   controller.abort();
+  const stopped = Promise.resolve().then(() => polling.stop());
+  const closed = Promise.resolve().then(closeResources);
+  const gracefulStop = Promise.all([stopped, closed]).then(() => undefined);
   try {
-    return await wait(polling.stop(), graceMs);
-  } finally {
-    await closeResources();
+    return await wait(gracefulStop, graceMs);
+  } catch {
+    return false;
   }
 }
 
@@ -184,7 +187,7 @@ function itemFailureDescription(code: ErrorCode): string {
     case 'MediaTooLarge':
       return 'exceeds the configured size limit';
     case 'MediaProcessingFailed':
-      return 'has no directly deliverable representation';
+      return 'could not be prepared safely for delivery';
     case 'TelegramDeliveryFailed':
       return 'could not be sent';
     default:
@@ -230,7 +233,7 @@ function userCopy(
     case 'MediaTooLarge':
       return 'A media item exceeds the configured size limit.';
     case 'MediaProcessingFailed':
-      return 'A media item has no directly deliverable representation.';
+      return 'A media item could not be prepared safely for delivery.';
     case 'TelegramDeliveryFailed':
       return 'A media item could not be sent. Please try again later.';
     case 'OperationTimedOut':

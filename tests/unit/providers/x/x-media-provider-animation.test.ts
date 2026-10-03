@@ -39,10 +39,10 @@ describe('XMediaProvider animation mapping', () => {
     expect(media).toHaveLength(1);
     expect(media[0]).toMatchObject({
       mediaId: 'animated-gif',
-      kind: 'animation',
-      audioPresence: 'absent',
+      kind: 'video',
+      audioPresence: 'unknown',
     });
-    expect(media[0]?.representations[0]?.audioEvidence).toBe('absent');
+    expect(media[0]?.representations[0]?.audioEvidence).toBe('unknown');
     expect(media[0]?.representations[0]?.representationId).toBe('animation-mp4');
     context.dispose();
   });

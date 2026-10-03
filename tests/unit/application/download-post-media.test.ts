@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, open, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import type {
   MediaProvider,
 } from '../../../src/application/ports.js';
 import { createDeliveryDestination } from '../../../src/application/models.js';
+import type { ProcessingBudget } from '../../../src/application/models.js';
 import { DownloadPostMedia } from '../../../src/application/download-post-media.js';
 import { RepresentationSelector } from '../../../src/media/representation-selector.js';
 import { TemporaryWorkspaceFactory } from '../../../src/infrastructure/temporary-workspace.js';
@@ -77,6 +78,207 @@ function makeUseCase(
 }
 
 describe('DownloadPostMedia', () => {
+  it('uses one item processing budget across fallback and retires each attempt before reacquiring', async () => {
+    const parent = await createRoot();
+    let clock = performance.now();
+    const media = discoveredMedia({
+      representations: [
+        { ...discoveredMedia().representations[0]!, representationId: 'first', sourceIndex: 0 },
+        { ...discoveredMedia().representations[0]!, representationId: 'second', sourceIndex: 1 },
+      ],
+    });
+    const provider: MediaProvider = {
+      recognizes: () => true,
+      validate: () => ({
+        provider: 'x',
+        postId: '1',
+        canonicalUrl: new URL('https://x.com/u/status/1'),
+      }),
+      resolve: async () => [media],
+    };
+    const downloadSignals: AbortSignal[] = [];
+    let downloads = 0;
+    const downloader: MediaDownloader = {
+      download: async ({ media: item, workspace, signal }) => {
+        downloads += 1;
+        downloadSignals.push(signal);
+        if (downloads === 2) expect(await readdir(workspace.root)).toEqual([]);
+        const handle = await open(workspace.itemPaths(item.position).partPath, 'wx', 0o600);
+        await handle.writeFile('mp4');
+        await handle.close();
+        await workspace.finalizeItem(item.position);
+        return downloadedMedia({
+          mediaId: item.mediaId,
+          position: item.position,
+          path: workspace.itemPaths(item.position).mediaPath,
+          sizeBytes: 3,
+        });
+      },
+    };
+    const budgets: ProcessingBudget[] = [];
+    const processor: MediaProcessor = {
+      prepare: async (downloaded, _context, _workspace, budget) => {
+        budgets.push(budget);
+        if (budgets.length === 1) {
+          clock += 3;
+          throw applicationError('MediaProcessingFailed', 'processing');
+        }
+        return preparedMedia({ media: downloaded });
+      },
+    };
+    const app = new DownloadPostMedia({
+      provider,
+      downloader,
+      processor,
+      delivery: {
+        deliver: async (_destination, value) => ({ itemPosition: value.downloaded.position }),
+      },
+      admission: new AdmissionControl({ maxActive: 1, maxQueued: 0 }),
+      workspaceFactory: new TemporaryWorkspaceFactory({ parentDirectory: parent }),
+      selector: new RepresentationSelector({ maxFallbacks: 2 }),
+      limits: {
+        maxMediaBytes: 51_380_224,
+        jobTimeoutMs: 100,
+        downloadTimeoutMs: 50,
+        processingTimeoutMs: 10,
+        maxRedirects: 3,
+      },
+      now: () => clock,
+    });
+
+    const outcome = await app.execute({
+      destination: createDeliveryDestination('-100123'),
+      messageText: 'https://x.com/u/status/1',
+      candidateUrl: 'https://x.com/u/status/1',
+      requestId: createRequestId(),
+      signal: new AbortController().signal,
+    });
+    expect(outcome.kind).toBe('complete');
+    expect(downloads).toBe(2);
+    expect(budgets[0]?.signal).toBe(budgets[1]?.signal);
+    expect(budgets[0]?.deadlineAt).toBe(budgets[1]?.deadlineAt);
+    expect(downloadSignals[1]).toBe(budgets[0]?.signal);
+    expect(budgets[1]?.remainingMs()).toBe(7);
+    expect(await readdir(parent)).toEqual([]);
+  });
+
+  it('does not start fallback acquisition after the shared processing budget expires', async () => {
+    const parent = await createRoot();
+    let clock = performance.now();
+    const media = discoveredMedia({
+      representations: [
+        { ...discoveredMedia().representations[0]!, representationId: 'first', sourceIndex: 0 },
+        { ...discoveredMedia().representations[0]!, representationId: 'second', sourceIndex: 1 },
+      ],
+    });
+    const provider: MediaProvider = {
+      recognizes: () => true,
+      validate: () => ({
+        provider: 'x',
+        postId: '1',
+        canonicalUrl: new URL('https://x.com/u/status/1'),
+      }),
+      resolve: async () => [media],
+    };
+    const downloader = {
+      download: vi.fn(async ({ media: item, workspace }) =>
+        downloadedMedia({
+          mediaId: item.mediaId,
+          position: item.position,
+          path: workspace.itemPaths(item.position).mediaPath,
+        }),
+      ),
+    };
+    const app = new DownloadPostMedia({
+      provider,
+      downloader,
+      processor: {
+        prepare: async () => {
+          clock += 20;
+          throw applicationError('MediaProcessingFailed', 'processing');
+        },
+      },
+      delivery: { deliver: vi.fn(async () => ({ itemPosition: 1 })) },
+      admission: new AdmissionControl({ maxActive: 1, maxQueued: 0 }),
+      workspaceFactory: new TemporaryWorkspaceFactory({ parentDirectory: parent }),
+      selector: new RepresentationSelector({ maxFallbacks: 2 }),
+      limits: {
+        maxMediaBytes: 51_380_224,
+        jobTimeoutMs: 100,
+        downloadTimeoutMs: 50,
+        processingTimeoutMs: 10,
+        maxRedirects: 3,
+      },
+      now: () => clock,
+    });
+
+    const outcome = await app.execute({
+      destination: createDeliveryDestination('-100123'),
+      messageText: 'https://x.com/u/status/1',
+      candidateUrl: 'https://x.com/u/status/1',
+      requestId: createRequestId(),
+      signal: new AbortController().signal,
+    });
+
+    expect(outcome).toMatchObject({ kind: 'failed', errorCode: 'OperationTimedOut' });
+    expect(downloader.download).toHaveBeenCalledTimes(1);
+    expect(await readdir(parent)).toEqual([]);
+  });
+
+  it('retries item cleanup and signals fatal shutdown after bounded retirement fails', async () => {
+    const parent = await createRoot();
+    const factory = new TemporaryWorkspaceFactory({ parentDirectory: parent });
+    let workspaceRemove: ReturnType<typeof vi.spyOn> | undefined;
+    const create = vi.spyOn(factory, 'create').mockImplementation(async (requestId) => {
+      const workspace = await new TemporaryWorkspaceFactory({ parentDirectory: parent }).create(
+        requestId,
+      );
+      workspaceRemove = vi
+        .spyOn(workspace, 'removeItem')
+        .mockRejectedValue(new Error('private path'));
+      return workspace;
+    });
+    const onFatalResourceFailure = vi.fn();
+    const { provider, downloader, processor, delivery } = makeUseCase({
+      media: [discoveredMedia({ position: 1 }), discoveredMedia({ position: 2 })],
+    });
+    const app = new DownloadPostMedia({
+      provider,
+      downloader,
+      processor,
+      delivery,
+      admission: new AdmissionControl({ maxActive: 1, maxQueued: 0 }),
+      workspaceFactory: { create, cleanup: (workspace) => factory.cleanup(workspace) },
+      selector: new RepresentationSelector(),
+      limits: {
+        maxMediaBytes: 51_380_224,
+        jobTimeoutMs: 100,
+        downloadTimeoutMs: 50,
+        processingTimeoutMs: 20,
+        maxRedirects: 3,
+      },
+      onFatalResourceFailure,
+    });
+
+    const outcome = await app.execute({
+      destination: createDeliveryDestination('-100123'),
+      messageText: 'https://x.com/u/status/1',
+      candidateUrl: 'https://x.com/u/status/1',
+      requestId: createRequestId(),
+      signal: new AbortController().signal,
+    });
+
+    expect(outcome).toMatchObject({
+      kind: 'partial',
+      deliveredCount: 1,
+      terminalErrorCode: 'OperationCancelled',
+      unattemptedPositions: [2],
+    });
+    expect(workspaceRemove).toHaveBeenCalledTimes(2);
+    expect(onFatalResourceFailure).toHaveBeenCalledWith('workspace-cleanup-incomplete');
+    expect(await readdir(parent)).toEqual([]);
+  });
+
   it('discovers, downloads, and delivers items in source order, then cleans and releases', async () => {
     const parent = await createRoot();
     const items = [

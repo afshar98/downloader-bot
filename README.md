@@ -8,11 +8,11 @@ media back to the originating chat. The implementation follows the feature desig
 
 - Node.js 24 and npm
 - A compatible, deployment-pinned `yt-dlp` executable available as `yt-dlp` or at `YT_DLP_PATH`
+- A deployment-pinned FFmpeg executable at `FFMPEG_PATH`, with its approved version token in `FFMPEG_EXPECTED_VERSION`
 - A Telegram bot token for local long-polling
 
-No FFmpeg, database, Redis, webhook endpoint, or X credentials are required. The bot uses long
-polling and local temporary workspaces. Keep the actual Telegram token in `.env`; do not commit or
-print it.
+No database, Redis, webhook endpoint, or X credentials are required. The bot uses long polling and
+local temporary workspaces. Keep the actual Telegram token in `.env`; do not commit or print it.
 
 ## Setup
 
@@ -23,7 +23,10 @@ cp .env.example .env
 
 Set `TELEGRAM_BOT_TOKEN` and the approved exact `YT_DLP_EXPECTED_VERSION` in `.env`.
 `YT_DLP_PATH` may point to the approved local executable. Startup compares its reported version
-with the approved value before beginning polling.
+with the approved value before beginning polling. Set `FFMPEG_PATH` and
+`FFMPEG_EXPECTED_VERSION` to the trusted local FFmpeg binary and approved version token; startup
+checks it before polling as well. See [`docs/media-processing.md`](docs/media-processing.md) for
+the conversion profile and controlled integration lane.
 
 ## Development and verification
 
@@ -36,9 +39,13 @@ npm run build
 ```
 
 The normal test suite uses checked-in provider fixtures and controlled ports. It does not call X or
-Telegram and does not require a live `yt-dlp` process. Controlled child-process integration tests
-run a checked-in fixture with Node.js. See
-[`specs/001-x-media-download/quickstart.md`](specs/001-x-media-download/quickstart.md) for the
+Telegram and does not require live media tools. The real-binary conversion check is a separate lane:
+
+```bash
+FFMPEG_PATH=/trusted/bin/ffmpeg FFMPEG_EXPECTED_VERSION=approved-token npm run test:ffmpeg
+```
+
+See [`specs/001-x-media-download/quickstart.md`](specs/001-x-media-download/quickstart.md) for the
 deterministic scenarios and opt-in live smoke test guidance. Normal commands need no network access;
 `npm ci` needs registry access when dependencies are not cached.
 

@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { Bot } from 'grammy';
 import { loadProcessConfig } from './config/load-config.js';
+import { verifyFfmpegVersion } from './config/verify-ffmpeg-version.js';
 import { DownloadPostMedia } from './application/download-post-media.js';
 import { createLogger } from './infrastructure/logger.js';
 import { ProcessRunner } from './infrastructure/process-runner.js';
@@ -9,22 +10,34 @@ import { TemporaryWorkspaceFactory } from './infrastructure/temporary-workspace.
 import { SafeHttpClient } from './infrastructure/safe-http-client.js';
 import { XMediaProvider } from './providers/x/x-media-provider.js';
 import { SafeMediaDownloader } from './media/safe-media-downloader.js';
-import { DirectMediaProcessor } from './media/direct-media-processor.js';
+import { GifMediaProcessor } from './media/gif-media-processor.js';
 import { RepresentationSelector } from './media/representation-selector.js';
 import { TelegramDelivery } from './bot/telegram-delivery.js';
 import { createTelegramBot, startLongPolling, stopLongPolling } from './bot/telegram-bot.js';
 import { callGrammyWithAbortSignal } from './bot/grammy-signal-adapter.js';
+import { applicationError } from './shared/errors.js';
 
 export async function startApplication(): Promise<Readonly<{ stop(): Promise<boolean> }>> {
   const config = await loadProcessConfig();
   const logger = createLogger({ level: config.logLevel });
   const controller = new AbortController();
   const bot = new Bot(config.telegramBotToken);
-  const processRunner = new ProcessRunner();
+  let initiateShutdown: () => void = () => {};
+  let fatalShutdownStarted = false;
+  const onFatalResourceFailure = () => {
+    if (!controller.signal.aborted) {
+      controller.abort(applicationError('OperationCancelled', 'cleanup'));
+    }
+    if (fatalShutdownStarted) return;
+    fatalShutdownStarted = true;
+    initiateShutdown();
+  };
+  const processRunner = new ProcessRunner({ onFatalResourceFailure });
   const actualYtDlpVersion = await processRunner.checkVersion(config.ytDlpPath);
   if (actualYtDlpVersion.trim() !== config.ytDlpExpectedVersion) {
     throw new Error('Configured yt-dlp version does not match the approved deployment version');
   }
+  await verifyFfmpegVersion(processRunner, config.ffmpegPath, config.ffmpegExpectedVersion);
 
   const admission = new AdmissionControl({
     maxActive: config.maxConcurrentJobs,
@@ -33,6 +46,7 @@ export async function startApplication(): Promise<Readonly<{ stop(): Promise<boo
   const workspaceFactory = new TemporaryWorkspaceFactory({
     parentDirectory: config.tempDir,
     logger,
+    onFatalResourceFailure,
   });
   const provider = new XMediaProvider({
     runner: processRunner,
@@ -46,7 +60,12 @@ export async function startApplication(): Promise<Readonly<{ stop(): Promise<boo
   });
   const httpClient = new SafeHttpClient({ maxRedirects: config.maxRedirects, logger });
   const downloader = new SafeMediaDownloader({ httpClient });
-  const processor = new DirectMediaProcessor({ maxMediaBytes: config.maxMediaBytes });
+  const processor = new GifMediaProcessor({
+    executable: config.ffmpegPath,
+    maxMediaBytes: config.maxMediaBytes,
+    runner: processRunner,
+    onFatalResourceFailure,
+  });
   const selector = new RepresentationSelector();
   const application = new DownloadPostMedia({
     provider,
@@ -78,9 +97,11 @@ export async function startApplication(): Promise<Readonly<{ stop(): Promise<boo
       maxMediaBytes: config.maxMediaBytes,
       jobTimeoutMs: config.jobTimeoutMs,
       downloadTimeoutMs: config.downloadTimeoutMs,
+      processingTimeoutMs: config.processingTimeoutMs,
       maxRedirects: config.maxRedirects,
     },
     logger,
+    onFatalResourceFailure,
   });
   createTelegramBot({
     token: config.telegramBotToken,
@@ -90,10 +111,25 @@ export async function startApplication(): Promise<Readonly<{ stop(): Promise<boo
     logger,
   });
   const polling = startLongPolling(bot, config.maxConcurrentJobs + config.maxQueuedJobs);
+  let stopPromise: Promise<boolean> | undefined;
+  const stop = (): Promise<boolean> => {
+    stopPromise ??= stopLongPolling(polling, controller, config.shutdownGraceMs, () =>
+      processRunner.closeResources(),
+    );
+    return stopPromise;
+  };
+  initiateShutdown = () => {
+    void stop().then((stopped) => {
+      if (!stopped) {
+        process.exitCode = 1;
+        process.exit(1);
+      }
+    });
+  };
 
   return {
     async stop() {
-      const stopped = await stopLongPolling(polling, controller, config.shutdownGraceMs);
+      const stopped = await stop();
       logger.info(
         { stage: 'shutdown', code: stopped ? 'OperationCancelled' : 'OperationTimedOut' },
         stopped ? 'bot shutdown complete' : 'bot shutdown grace elapsed',
