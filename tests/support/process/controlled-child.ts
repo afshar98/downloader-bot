@@ -6,22 +6,25 @@ const fixturePath = fileURLToPath(
 );
 
 export function runControlledChild(
-  mode: 'valid' | 'non-zero' | 'malformed' | 'oversized' | 'wait',
+  mode: 'valid' | 'non-zero' | 'malformed' | 'oversized' | 'binary' | 'wait',
   options: Readonly<{
     timeoutMs?: number;
     stdoutLimitBytes?: number;
     stderrLimitBytes?: number;
     signal?: AbortSignal;
+    stdoutFile?: Readonly<{ path: string; maxBytes: number }>;
+    stage?: 'provider' | 'processing';
   }> = {},
 ) {
   const runner = new ProcessRunner({ killGraceMs: 20 });
   return runner.run({
-    stage: 'provider',
+    stage: options.stage ?? 'provider',
     executable: process.execPath,
     args: [fixturePath, mode],
     timeoutMs: options.timeoutMs ?? 2_000,
     stdoutLimitBytes: options.stdoutLimitBytes ?? 1024,
     stderrLimitBytes: options.stderrLimitBytes ?? 1024,
     signal: options.signal ?? new AbortController().signal,
+    ...(options.stdoutFile ? { stdoutFile: options.stdoutFile } : {}),
   });
 }

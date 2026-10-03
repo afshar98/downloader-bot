@@ -117,4 +117,25 @@ describe('TemporaryWorkspaceFactory', () => {
     expect(JSON.stringify(logger.error.mock.calls)).not.toMatch(/private path|\/tmp/);
     expect(await readdir(parentDirectory)).toEqual([]);
   });
+
+  it('signals a fatal resource failure when both bounded cleanup attempts fail', async () => {
+    const parentDirectory = await createRoot();
+    const onFatalResourceFailure = vi.fn();
+    const logger = { error: vi.fn() };
+    const factory = new TemporaryWorkspaceFactory({
+      parentDirectory,
+      removeDirectory: vi.fn(async () => {
+        throw new Error('private workspace path');
+      }),
+      onFatalResourceFailure,
+      logger,
+    });
+    const workspace = await factory.create(createRequestId());
+
+    await factory.cleanup(workspace);
+
+    expect(onFatalResourceFailure).toHaveBeenCalledTimes(1);
+    expect(onFatalResourceFailure).toHaveBeenCalledWith('workspace-cleanup-incomplete');
+    expect(JSON.stringify(logger.error.mock.calls)).not.toMatch(/private workspace path|\/tmp/);
+  });
 });

@@ -19,6 +19,7 @@ export type TemporaryWorkspaceFactoryOptions = Readonly<{
   parentDirectory: string;
   logger?: Pick<StructuredLogger, 'error'>;
   removeDirectory?: (path: string) => Promise<void>;
+  onFatalResourceFailure?: (reason: 'workspace-cleanup-incomplete') => void;
 }>;
 
 export class TemporaryWorkspaceFactory {
@@ -69,6 +70,13 @@ export class TemporaryWorkspaceFactory {
           },
           'temporary workspace cleanup failed',
         );
+        if (attempt === 2) {
+          try {
+            this.options.onFatalResourceFailure?.('workspace-cleanup-incomplete');
+          } catch {
+            // Fatal signaling must not interrupt cleanup outcome handling.
+          }
+        }
       }
     }
   }

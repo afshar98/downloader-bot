@@ -1,4 +1,7 @@
 import { EventEmitter } from 'node:events';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import type { SpawnOptions } from 'node:child_process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -120,5 +123,113 @@ describe('ProcessRunner', () => {
       child.emit('close', 0, null);
     });
     await expect(version.runner.checkVersion('/opt/bin/yt-dlp')).resolves.toBe('yt-dlp 2026.09.01');
+  });
+
+  it('streams binary stdout to an exclusively created bounded file without capturing it', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'process-runner-binary-'));
+    try {
+      const outputPath = join(root, 'palette.part');
+      const { runner } = runnerFor((child) => {
+        child.stdout.end(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+        child.stderr.end('');
+        child.emit('close', 0, null);
+      });
+      const result = await runner.run({
+        ...request,
+        stdoutFile: { path: outputPath, maxBytes: 4 },
+      });
+      expect(result).toMatchObject({ stdout: '', outputBytes: 4, exitCode: 0 });
+      expect(await readFile(outputPath)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects the first over-cap binary byte and removes its partial output', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'process-runner-overflow-'));
+    try {
+      const outputPath = join(root, 'gif.part');
+      const { runner, child } = runnerFor((process) => {
+        process.stdout.end(Buffer.from([1, 2, 3, 4, 5]));
+      });
+      await expect(
+        runner.run({
+          ...request,
+          stage: 'processing',
+          stdoutFile: { path: outputPath, maxBytes: 4 },
+        }),
+      ).rejects.toMatchObject({ code: 'MediaTooLarge', stage: 'processing' });
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(await readdir(root)).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not remove a pre-existing file when exclusive sink creation fails', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'process-runner-exclusive-'));
+    try {
+      const outputPath = join(root, 'existing.part');
+      await writeFile(outputPath, 'keep');
+      const { runner } = runnerFor((process) => {
+        process.stdout.end('data');
+        process.stderr.end('');
+        process.emit('close', 0, null);
+      });
+      await expect(
+        runner.run({
+          ...request,
+          stage: 'processing',
+          stdoutFile: { path: outputPath, maxBytes: 16 },
+        }),
+      ).rejects.toMatchObject({ code: 'MediaProcessingFailed', stage: 'processing' });
+      expect(await readFile(outputPath, 'utf8')).toBe('keep');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('maps process setup failures using the requested processing stage', async () => {
+    const runner = new ProcessRunner({
+      spawn: () => {
+        throw new Error('private');
+      },
+    });
+    await expect(runner.run({ ...request, stage: 'processing' })).rejects.toMatchObject({
+      code: 'MediaProcessingFailed',
+      stage: 'processing',
+    });
+  });
+
+  it('reports unconfirmed termination and waits for child closure before rejecting', async () => {
+    vi.useFakeTimers();
+    const fatal = vi.fn();
+    const { child } = runnerFor(() => {});
+    child.kill.mockImplementation(() => true);
+    const runner = new ProcessRunner({
+      spawn: () => child,
+      killGraceMs: 20,
+      onFatalResourceFailure: fatal,
+    });
+    const result = runner.run({ ...request, timeoutMs: 10 });
+    const assertion = expect(result).rejects.toMatchObject({ code: 'OperationTimedOut' });
+    await vi.advanceTimersByTimeAsync(60);
+    expect(fatal).toHaveBeenCalledWith('process-termination-unconfirmed');
+    child.emit('close', null, 'SIGKILL');
+    await assertion;
+    await runner.closeResources();
+  });
+
+  it('cancels active work and waits for process closure during resource drain', async () => {
+    const { child } = runnerFor(() => {});
+    const runner = new ProcessRunner({
+      spawn: () => child,
+      killGraceMs: 20,
+    });
+    const result = runner.run(request);
+    const assertion = expect(result).rejects.toMatchObject({ code: 'OperationCancelled' });
+    await runner.closeResources();
+    await assertion;
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
   });
 });
