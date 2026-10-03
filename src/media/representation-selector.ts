@@ -18,7 +18,10 @@ export class RepresentationSelector {
   }
 
   select(media: DiscoveredMedia, limits: DeliveryLimits): readonly MediaRepresentation[] {
-    const direct = media.representations.filter((candidate) => isDirectMp4(candidate, media.kind));
+    const audioEligible = media.representations.filter((candidate) =>
+      isAudioEligible(candidate, media.audioPresence),
+    );
+    const direct = audioEligible.filter((candidate) => isDirectMp4(candidate, media.audioPresence));
     const fitting = direct.filter((candidate) => {
       const size = usableSize(candidate.sizeBytes);
       return size === undefined || size <= limits.maxMediaBytes;
@@ -37,10 +40,22 @@ export class RepresentationSelector {
   }
 }
 
-function isDirectMp4(candidate: MediaRepresentation, kind: DiscoveredMedia['kind']): boolean {
+function isAudioEligible(
+  candidate: MediaRepresentation,
+  audioPresence: DiscoveredMedia['audioPresence'],
+): boolean {
+  if (audioPresence === 'present') return candidate.audioEvidence === 'present';
+  if (audioPresence === 'absent') return candidate.audioEvidence === 'absent';
+  return true;
+}
+
+function isDirectMp4(
+  candidate: MediaRepresentation,
+  audioPresence: DiscoveredMedia['audioPresence'],
+): boolean {
   const videoCodec = candidate.videoCodec?.trim().toLowerCase() ?? '';
   const animationCompatible =
-    kind !== 'animation' ||
+    audioPresence !== 'absent' ||
     ((videoCodec === 'h264' || videoCodec.startsWith('avc1') || videoCodec.startsWith('avc3')) &&
       candidate.audioCodec?.trim().toLowerCase() === 'none');
   return (

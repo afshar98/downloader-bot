@@ -8,6 +8,7 @@ const selector = new RepresentationSelector({ maxFallbacks: 3 });
 describe('RepresentationSelector', () => {
   it('orders direct MP4 candidates by dimensions, bitrate, duration, and source index', () => {
     const media = discoveredMedia({
+      audioPresence: 'unknown',
       representations: [
         representation({
           representationId: 'small',
@@ -57,6 +58,7 @@ describe('RepresentationSelector', () => {
 
   it('filters known oversize, HLS, non-HTTPS, and missing-codec candidates', () => {
     const media = discoveredMedia({
+      audioPresence: 'unknown',
       representations: [
         representation({ representationId: 'too-big', sizeBytes: 51_380_225 }),
         representation({ representationId: 'hls', protocol: 'm3u8_native' }),
@@ -77,14 +79,23 @@ describe('RepresentationSelector', () => {
 
   it('distinguishes all-oversize representations from no compatible direct representation', () => {
     expect(() =>
-      selector.select(discoveredMedia({ representations: [representation({ sizeBytes: 200 })] }), {
-        maxMediaBytes: 100,
-      }),
+      selector.select(
+        discoveredMedia({
+          audioPresence: 'unknown',
+          representations: [representation({ sizeBytes: 200 })],
+        }),
+        {
+          maxMediaBytes: 100,
+        },
+      ),
     ).toThrow(applicationError('MediaTooLarge', 'processing'));
 
     expect(() =>
       selector.select(
-        discoveredMedia({ representations: [representation({ protocol: 'm3u8_native' })] }),
+        discoveredMedia({
+          audioPresence: 'unknown',
+          representations: [representation({ protocol: 'm3u8_native' })],
+        }),
         { maxMediaBytes: 100 },
       ),
     ).toThrow(applicationError('MediaProcessingFailed', 'processing'));

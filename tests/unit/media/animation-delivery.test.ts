@@ -5,6 +5,64 @@ import { applicationError } from '../../../src/shared/errors.js';
 import { discoveredMedia, downloadedMedia, representation } from '../../support/builders.js';
 
 describe('animation direct delivery', () => {
+  it('keeps confirmed audio on audio-bearing candidates and their fallback chain', () => {
+    const media = discoveredMedia({
+      audioPresence: 'present',
+      representations: [
+        representation({
+          representationId: 'silent-higher',
+          width: 1920,
+          audioEvidence: 'absent',
+          audioCodec: 'none',
+        }),
+        representation({
+          representationId: 'unknown',
+          width: 1600,
+          audioEvidence: 'unknown',
+          audioCodec: null,
+        }),
+        representation({ representationId: 'audio-best', width: 1280, audioEvidence: 'present' }),
+        representation({
+          representationId: 'audio-fallback',
+          width: 640,
+          audioEvidence: 'present',
+        }),
+      ],
+    });
+    expect(
+      new RepresentationSelector({ maxFallbacks: 2 })
+        .select(media, { maxMediaBytes: 51_380_224 })
+        .map((item) => item.representationId),
+    ).toEqual(['audio-best', 'audio-fallback']);
+  });
+
+  it('requires confirmed silence and AVC input before selecting conversion sources', () => {
+    const media = discoveredMedia({
+      audioPresence: 'absent',
+      representations: [
+        representation({ representationId: 'unknown', audioEvidence: 'unknown', audioCodec: null }),
+        representation({ representationId: 'sound', audioEvidence: 'present' }),
+        representation({
+          representationId: 'silent-vp9',
+          videoCodec: 'vp9',
+          audioEvidence: 'absent',
+          audioCodec: 'none',
+        }),
+        representation({
+          representationId: 'silent-avc',
+          videoCodec: 'h264',
+          audioEvidence: 'absent',
+          audioCodec: 'none',
+        }),
+      ],
+    });
+    expect(
+      new RepresentationSelector()
+        .select(media, { maxMediaBytes: 51_380_224 })
+        .map((item) => item.representationId),
+    ).toEqual(['silent-avc']);
+  });
+
   it('does not let an animation label with unknown audio change the video upload path', async () => {
     const media = discoveredMedia({
       kind: 'animation',

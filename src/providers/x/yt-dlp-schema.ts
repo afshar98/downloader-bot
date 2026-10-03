@@ -76,11 +76,13 @@ export function parseYtDlpMetadata(
           (representation): representation is MediaRepresentation => representation !== undefined,
         );
       if (representations.length > 0) {
+        const evidence = representations.map((representation) => representation.audioEvidence);
+        const audioPresence = aggregateAudioPresence(evidence);
         supported.push({
           mediaId: entry.id,
           position: supported.length + 1,
-          kind: 'video',
-          audioPresence: 'unknown',
+          kind: audioPresence === 'absent' ? 'animation' : 'video',
+          audioPresence,
           representations,
         });
       }
@@ -105,17 +107,20 @@ function toRepresentation(
   } catch {
     return undefined;
   }
-  const videoCodec = format.vcodec ?? inferTwitterVideoCodec(url);
+  const rawVideoCodec = format.vcodec ?? inferTwitterVideoCodec(url);
+  const videoCodec = rawVideoCodec?.trim();
   if (!videoCodec || videoCodec.toLowerCase() === 'none') return undefined;
-  const audioCodec =
-    format.acodec ?? (format.audio_ext?.toLowerCase() === 'none' ? 'none' : undefined);
+  const normalizedAudioCodec = normalizeAudioCodec(format.acodec);
+  const audioExt = normalizeAudioCodec(format.audio_ext);
+  const audioEvidence = combineAudioEvidence(normalizedAudioCodec, audioExt);
+  const audioCodec = normalizedAudioCodec ?? audioExt;
   const sizeBytes = format.filesize ?? format.filesize_approx;
   return {
     representationId: format.format_id ?? `format-${sourceIndex}`,
     url,
     container: format.ext,
     protocol: format.protocol,
-    audioEvidence: 'unknown',
+    audioEvidence,
     videoCodec,
     ...(audioCodec !== undefined ? { audioCodec } : {}),
     ...(format.width != null ? { width: format.width } : {}),
@@ -125,6 +130,32 @@ function toRepresentation(
     ...(format.duration != null ? { durationSeconds: format.duration } : {}),
     sourceIndex,
   };
+}
+
+function normalizeAudioCodec(value: string | null | undefined): string | undefined {
+  if (value == null) return undefined;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '' || normalized === 'unknown' ? undefined : normalized;
+}
+
+function combineAudioEvidence(
+  codec: string | undefined,
+  extension: string | undefined,
+): MediaRepresentation['audioEvidence'] {
+  const codecState = codec === undefined ? undefined : codec === 'none' ? 'absent' : 'present';
+  const extensionState =
+    extension === undefined ? undefined : extension === 'none' ? 'absent' : 'present';
+  if (codecState && extensionState && codecState !== extensionState) return 'conflicting';
+  return codecState ?? extensionState ?? 'unknown';
+}
+
+function aggregateAudioPresence(
+  evidence: readonly MediaRepresentation['audioEvidence'][],
+): DiscoveredMedia['audioPresence'] {
+  if (evidence.includes('conflicting')) return 'unknown';
+  if (evidence.includes('present')) return 'present';
+  if (evidence.length > 0 && evidence.every((item) => item === 'absent')) return 'absent';
+  return 'unknown';
 }
 
 function inferTwitterVideoCodec(url: URL): string | undefined {

@@ -278,8 +278,8 @@ Test Criteria** below.
 
 **Independent Test**: Provider and selector fixtures exercise every frozen evidence aggregation case and prove silent/unknown alternatives cannot displace confirmed audio, while uncertain items retain existing compatible-video ranking.
 
-- [ ] T094 [P] [US1] Add provider and selector tests for normalized `acodec`/`audio_ext`, conflicting evidence retention, usable-format aggregation precedence, and audio-safe candidate filtering/fallback in `tests/unit/providers/x/yt-dlp-schema-direct-formats.test.ts`, `tests/unit/media/representation-selector.test.ts`, and `tests/unit/media/animation-delivery.test.ts`
-- [ ] T095 [US1] Implement explicit evidence normalization, item audio-state aggregation, and audio-preserving representation selection with the T094 tests in `src/providers/x/yt-dlp-schema.ts`, `src/media/representation-selector.ts`, and focused X audio fixtures under `tests/fixtures/x/`
+- [X] T094 [P] [US1] Add provider and selector tests for normalized `acodec`/`audio_ext`, conflicting evidence retention, usable-format aggregation precedence, and audio-safe candidate filtering/fallback in `tests/unit/providers/x/yt-dlp-schema-direct-formats.test.ts`, `tests/unit/media/representation-selector.test.ts`, and `tests/unit/media/animation-delivery.test.ts`
+- [X] T095 [US1] Implement explicit evidence normalization, item audio-state aggregation, and audio-preserving representation selection with the T094 tests in `src/providers/x/yt-dlp-schema.ts`, `src/media/representation-selector.ts`, and focused X audio fixtures under `tests/fixtures/x/`
 
 **Commit checkpoint A**: Group T094–T095 as the audio classification and safe selection capability.
 
