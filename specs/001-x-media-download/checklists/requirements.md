@@ -40,5 +40,7 @@
   and FFmpeg constraints plus the existing deterministic policy; they are not unresolved requirements.
   Functional requirements and acceptance scenarios are explicit, bounded, and testable, with no
   clarification markers. Checked readiness items describe specification coverage, not completed code.
-- Planning artifacts and task coverage remain stale. See [completion-preparation.md](../completion-preparation.md)
-  before updating the plan and tasks; the feature is not ready to be declared complete.
+- Planning artifacts were refreshed by `speckit-plan` on 2026-10-03, including shared contracts,
+  research, models, and quickstart. Task coverage still needs new unchecked work; acceptance/security
+  checklists require reassessment during task generation. See [plan.md](../plan.md) and
+  [completion-preparation.md](../completion-preparation.md). The feature is not implemented-complete.

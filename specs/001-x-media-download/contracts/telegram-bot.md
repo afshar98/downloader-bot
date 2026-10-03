@@ -18,7 +18,9 @@ No URL, multiple URLs, or malformed/obscured URLs are rejected before discovery.
 
 1. Resolve all supported video/animated items.
 2. Attempt each individually in source order.
-3. Upload video as Telegram video and compatible X animated media as Telegram animation.
+3. Confirmed audio uses an audio-bearing MP4 via `sendVideo`; confirmed silence is converted to a
+   real GIF before `sendAnimation`; unknown/contradictory audio stays on MP4/`sendVideo`. GIF labels
+   never override audio state. Upload the prepared artifact's path, not an unchanged silent MP4.
 4. Ignore static images/unsupported attachments.
 5. If all succeed, delivered media is sufficient.
 6. If some fail, retain successes and send one concise summary with delivered/total count and failed one-based positions.
@@ -39,7 +41,7 @@ The outcome codes and handling classes mirror the canonical taxonomy in `spec.md
 | `ProviderOutputInvalid` | User-sendable request outcome: media details could not be read safely; retry later. |
 | `MediaDownloadFailed` | Item-level: this item could not be retrieved; later items continue. |
 | `MediaTooLarge` | Item-level: this item exceeds the configured media limit. |
-| `MediaProcessingFailed` | Item-level: no directly deliverable representation is available or preparation failed. |
+| `MediaProcessingFailed` | Item-level: no eligible source for its required path, or conversion/output validation failed. |
 | `TelegramDeliveryFailed` | Item-level: this item could not be sent; later items continue. |
 | `OperationTimedOut` | Request-wide terminal: preserve successes; send timeout/partial copy only while delivery is usable. |
 | `OperationCancelled` | Request-wide terminal: preserve successes; send cancellation/partial copy only while delivery is usable. |
@@ -62,6 +64,10 @@ Never return stacks, raw third-party errors, process output, paths, tokens, head
 
 - Upload from bounded temporary storage; never ask Telegram to fetch provider URLs.
 - Default maximum is 49 MiB, below the current cloud Bot API multipart limit.
+- Source MP4 and generated GIF each obey the configured cap. Missing, empty, malformed, truncated,
+  undecodable, or over-limit output is never uploaded. Conversion failure does not fall back to
+  sending the silent MP4 as animation; ordinary conversion failures remain item-local and deadlines
+  or cancellation retain the existing request-wide terminal rules.
 - Use individual messages, not media groups.
 - Pass the originating opaque destination through the request for every item/summary. Concurrency tests prove destinations cannot cross.
 

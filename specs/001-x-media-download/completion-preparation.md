@@ -6,6 +6,13 @@ FR-011, FR-022, FR-023, and SC-001/SC-007.
 **Scope of this checkpoint**: Specification alignment and implementation assessment only.
 No production code, tests, dependency configuration, or runtime environment files were changed.
 
+**Subsequent planning checkpoint, 2026-10-03**: `speckit-plan` has now refreshed `plan.md`,
+`research.md`, `data-model.md`, contracts, and `quickstart.md`, and added supersession notes to the
+dated design/plan inputs. The assessment below records the pre-planning state; its document table
+is historical. New implementation tasks, acceptance/security checklist reassessment, runtime/operator
+documentation changes, and production work remain pending. See the updated plan's dependency and
+exclusive-ownership table before task generation.
+
 ## Current implementation
 
 The repository has the original stateless X download workflow and all T001–T091 are checked off.

@@ -2,6 +2,9 @@
 
 The feature is stateless. These are in-memory domain/application values and request-scoped resources, not database entities. Raw Telegram, yt-dlp, Undici, and process payloads are validated and mapped before entering this model.
 
+**Updated**: 2026-10-03. Sound-aware additions are planned, not yet implemented.
+The exact shared contract and audio truth table are in [sound-aware-media.md](./contracts/sound-aware-media.md).
+
 ## DownloadRequest
 
 | Field | Type | Rules |
@@ -35,7 +38,8 @@ Recognition/validation remain provider responsibilities. Application code treats
 |---|---|---|
 | `mediaId` | opaque string | Unique within result; never a path |
 | `position` | positive integer | One-based source order; stable for feedback |
-| `kind` | `video \| animation` | Static/unsupported media excluded |
+| `kind` | `video \| animation` | Animation only for confirmed absence of audio; labels do not override |
+| `audioPresence` | `present \| absent \| unknown` | Required conservative item state, aggregated before direct/size filtering |
 | `representations` | non-empty list | Validated candidates before application ranking |
 
 Mixed posts omit unsupported items while retaining deterministic supported-media order.
@@ -46,21 +50,37 @@ Mixed posts omit unsupported items while retaining deterministic supported-media
 |---|---|---|
 | `representationId` | string | Provider-generated; not a filename |
 | `url` | URL value | Untrusted until downloader policy |
-| `container` | `mp4` | Other containers not selected in MVP |
-| `protocol` | `https` | HLS/manifests not selected |
+| `container` | validated string | Only progressive MP4 is selected; unsupported formats may still establish audio evidence |
+| `protocol` | validated string | Only HTTPS direct sources selected; HLS video evidence is retained for classification |
 | `videoCodec` / `audioCodec` | optional string/null | Advisory validated metadata |
+| `audioEvidence` | `present \| absent \| unknown \| conflicting` | Normalized separate audio codec/container fields; conflicts are not lost |
 | `width` / `height` | optional positive integer | Quality ranking |
 | `bitrate` | optional positive number | Quality ranking |
 | `sizeBytes` | optional non-negative integer | Advisory; streamed cap authoritative |
 | `durationSeconds` | optional non-negative number | Advisory delivery metadata |
 
-Selection removes non-progressive HTTPS MP4 and known oversize candidates, prefers compatible higher quality within limits, and returns a bounded fallback list. Unknown size is permitted but byte-counted.
+Classify the item before filtering. Selection removes non-progressive HTTPS MP4, audio-ineligible,
+and known oversized candidates, preserves sound, and returns the existing bounded quality-ordered
+fallback list. Unknown size is permitted but byte-counted. A mixed sound/silent item is audio-bearing;
+any internally conflicting format makes the item unknown; only unanimous explicit absence confirms silence.
 
 ## DownloadedMedia and PreparedMedia
 
-`DownloadedMedia` contains copied item identity/kind, a controlled absolute path inside the owning workspace, actual positive bytes at/below the cap, and `mp4`. A `.part` is never a downloaded value; completion and controlled rename come first.
+`DownloadedMedia` contains copied item identity/kind/audioPresence, a controlled absolute path inside
+the owning workspace, actual positive bytes at/below the cap, and `mp4`. A `.part` is never a
+downloaded value; completion and controlled rename come first. Item audio state is not replaced
+with the selected format's state after download.
 
-`PreparedMedia` contains the downloaded value, `deliveryKind: video | animation`, and `transformed`. The direct MVP processor always sets `transformed: false`. No generic transformation graph is modeled.
+`PreparedMedia` retains downloaded provenance and adds `deliveryPath`, `deliverySizeBytes`, and
+`deliveryContainer`. Its discriminated valid combinations are `video/mp4/transformed:false` for
+audio-bearing/unknown items and `animation/gif/transformed:true` for converted confirmed silence.
+Video upload path equals the source path; GIF upload path is a distinct validated owned artifact.
+There is no deliverable MP4-animation shortcut or generic transformation graph.
+
+`ProcessingBudget` has one composed abort signal, `remainingMs()` using the context's injected
+monotonic clock, and a monotonic deadline bounded by the original
+job deadline. It is allocated after the first successful item download and reused for every pass,
+full output validation, and any fallback. Subsequent fallback downloads cannot outlive it.
 
 ## ItemResult and RequestOutcome
 
@@ -68,6 +88,7 @@ Selection removes non-progressive HTTPS MP4 and known oversize candidates, prefe
 ItemResult =
   Delivered { position, mediaId }
   Failed    { position, mediaId, errorCode, retryable }
+  Unattempted { position, reason: OperationTimedOut | OperationCancelled | DeliveryDestinationUnavailable }
 
 RequestOutcome =
   Complete { ordered item results }
@@ -87,7 +108,21 @@ Each item has one terminal result. Ordinary item failure does not stop later ite
 | `resources` | generated paths/handles | Internal and never exposed |
 | `state` | `open \| cleaning \| closed` | Cleanup idempotent |
 
-Only generated basenames such as `item-0001.part` and `item-0001.mp4` are used. Partials are unlinked on item failure. The directory is removed in request `finally`; cleanup failure is logged without changing the primary outcome.
+Only generated basenames are used: source `.part`/`.mp4`, palette `.palette.part`/`.palette.png`, and
+GIF `.gif.part`/`.gif`. Workspace methods own finalization, conversion removal, and complete item
+retirement. Source/GIF each have the media byte cap; palette has a 16 KiB cap. Remove all attempt
+artifacts after settled delivery/failure and before fallback/next item. The directory is removed
+in request `finally`; cleanup failure is logged without replacing the primary outcome. Failed
+bounded retirement prevents further acquisition rather than accumulating artifacts.
+
+## ProcessExecution
+
+The shared process request retains executable/argument array, cwd, timeout, diagnostic byte caps,
+and signal, with required `stage: provider | processing`. Optional `stdoutFile` is a generated
+partial path and hard binary byte cap; absent it, stdout is bounded captured UTF-8 as before.
+The result carries bounded captured stdout/stderr, exit metadata, and streamed `outputBytes` when
+a file sink is used. Processing spawn/pipe failures use `MediaProcessingFailed`; binary media
+overflow uses `MediaTooLarge`; typed timeout/cancellation codes survive stage mapping.
 
 ## ApplicationError
 
@@ -120,6 +155,7 @@ Received
             -> ProcessingItems
                  -> Downloading(i)
                  -> Preparing(i)
+                      -> VideoPassthrough | Palette -> GIFEncoding -> StructureAndDecodeValidation
                  -> Delivering(i)
                  -> ItemTerminal(i) -> next item
             -> Complete | Partial | Failed

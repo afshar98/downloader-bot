@@ -1,6 +1,7 @@
 # Phase 0 Research: X/Twitter Media Download
 
-**Research date**: 2026-09-28  
+**Research date**: 2026-09-28; sound-aware update 2026-10-03
+
 **Scope**: Technical choices for `001-x-media-download` only
 
 ## 1. Telegram framework and transport
@@ -60,11 +61,16 @@ The deployment ships the license notices applicable to the chosen artifact.
 
 ## 5. FFmpeg
 
-**Decision**: Do not require FFmpeg. Upload progressive MP4 directly; use `sendAnimation` for X animated media (normally silent MP4) and `sendVideo` otherwise.
+**Decision (superseded 2026-10-03)**: The earlier direct-MP4 animation path is replaced by bounded
+silent-MP4-to-GIF conversion. Audio-bearing and uncertain media remain direct MP4/video. See section 11.
 
-**Rationale**: Telegram accepts the selected direct formats. Routine transcoding adds CPU, latency, quality loss, packaging, and license complexity.
+**Rationale**: The revised requirement explicitly requires a real uploaded GIF. Limit transformation
+to confirmed silence; retain the earlier exclusion of HLS assembly, split streams, remuxing, repair,
+and arbitrary transcoding. The constitution already permits controlled external media programs.
 
-**Alternatives considered**: Add a narrow adapter later only for a demonstrated HLS-only, split-stream, incompatible-codec/container, fast-start repair, or size-reduction case. Future execution stays non-shell, bounded, isolated, and cleanup-safe; [FFmpeg guidance](https://ffmpeg.org/ffmpeg.html) favors stream copy when transcoding is unnecessary.
+**Alternatives considered**: The earlier unchanged-MP4 animation upload does not satisfy real-GIF
+delivery. HLS assembly, merging, repair, and general size/codec conversion remain excluded; only
+the confirmed-silent conversion adapter in section 11 is approved by this feature's requirements.
 
 ## 6. HTTP download and SSRF
 
@@ -84,7 +90,10 @@ Permit HTTPS, no credentials, default port, bounded URL length, and public desti
 
 **Decision**: One `fs.mkdtemp` workspace per admitted job under a trusted parent; internally generated basenames, exclusive writes, prompt partial cleanup, and recursive top-level `finally` cleanup. Process items sequentially; admit two active jobs with eight bounded in-memory waiters by default.
 
-**Rationale**: This isolates paths/users, preserves order, limits one active large file per job, and bounds approximate disk to active jobs times maximum size. A semaphore meets MVP needs without Redis/BullMQ.
+**Rationale**: This isolates paths/users and preserves order. Retire complete item artifacts before
+the next attempt/item. Conversion storage is bounded to active jobs times two media caps plus a
+16 KiB palette per job, rather than retaining every item's source. A semaphore meets MVP needs
+without Redis/BullMQ.
 
 **Alternatives considered**: Buffers violate large-media guidance; shared paths risk collision; parallel items multiply pressure; persistent/distributed queues solve absent scale/durability needs.
 
@@ -108,6 +117,132 @@ Permit HTTPS, no credentials, default port, bounded URL length, and public desti
 
 **Decision**: Establish npm scripts for strict TypeScript build/typecheck, ESLint flat/typescript-eslint, and Vitest. Inject all external boundaries; controlled resources only in integration tests.
 
-**Rationale**: The repository has no package tooling. This satisfies mandatory lint/typecheck/test/build gates and deterministic TDD without live services, network, clocks, randomness, or binaries in normal tests.
+**Rationale**: These package scripts are now implemented. Retain them and deterministic TDD without
+live services, network, clocks, randomness, or binaries in normal tests.
 
 **Alternatives considered**: Node's runner is smaller but Vitest offers mature TypeScript/ESM fake timers, fixtures, and coverage. Jest adds heavier ESM transformation setup.
+
+## 11. Sound-aware completion decisions
+
+Current source inspection confirms the existing schema coalesces audio fields and labels a whole
+item animation if any silent AVC format exists. The selector, processor, and Telegram upload path
+then permit unchanged silent MP4 uploads. The new design below retains existing module boundaries
+and resolves the dated design/implementation inputs against FR-022/FR-023.
+
+### Audio state and candidate selection
+
+**Decision**: Four-state per-format audio evidence, tri-state item audio presence, aggregation before
+direct compatibility/size filtering, and GIF labels subordinate to audio state. Conflicts take
+precedence over positive evidence; otherwise any positive evidence confirms sound, all explicit
+absence confirms silence, and missing/ambiguous evidence means unknown. Retain conservative AVC
+conversion inputs and existing unknown-video quality ranking. Freeze the complete table in
+[sound-aware-media.md](./contracts/sound-aware-media.md).
+
+**Rationale**: A missing field and a contradictory field need different aggregation behavior.
+Audio available only in an undeliverable format must still prevent silent conversion. Classification
+based on the winning representation or an oversize filter can discard known sound.
+
+**Alternatives considered**: Boolean audio state, one silent-format test, label-driven animation,
+and direct-format-only aggregation cannot meet conservative routing and sound preservation.
+
+### Version pin and deployment dependency
+
+**Decision**: Required `FFMPEG_PATH` and `FFMPEG_EXPECTED_VERSION`; verify with `-version`, parse the
+first-line version token, and compare exactly before polling. Use the existing runner's `run` port
+with 5-second lifetime and separate 16 KiB stdout/stderr caps; keep yt-dlp's `--version` behavior.
+The deployment selects the approved token, immutable build, provenance/checksum, and applicable
+license notices. No runtime auto-update, npm encoder, or ffprobe dependency.
+
+**Rationale**: FFmpeg's version output is a banner and differs from yt-dlp; the existing hardcoded
+probe cannot simply be reused. [FFmpeg CLI documentation](https://ffmpeg.org/ffmpeg.html) documents
+`-version`. Exact token comparison checks approval; artifact verification establishes the build.
+
+**Alternatives considered**: Whole-banner comparison is environment-sensitive; accepting any version
+weakens the pin; a JS encoder duplicates a maintained media conversion tool.
+
+### Local conversion profile and resource bounds
+
+**Decision**: Two sequential FFmpeg passes: create one palette PNG, then apply it to the same local
+MP4 to produce GIF. Both apply fixed 15 fps and aspect-preserving scale into at most 640 by 640
+pixels without upscaling, plus square sample aspect ratio. Palette is at most 256 colors; application
+uses deterministic Bayer dithering and looped GIF output. No `-t` or intentional clipping.
+Use one decoder/encoder thread and one filter/complex-filter thread, a 16,777,216 source-pixel ceiling,
+and a 64 MiB per-allocation guard; excessive input fails safely. These are fixed adapter constants,
+not a new user-facing configuration surface. Use separate finite process/diagnostic/file limits.
+
+**Rationale**: The dated whole-stream split/palettegen/paletteuse graph can buffer frames awaiting
+the palette. Two passes avoid that unbounded full-clip buffering; this is a design inference based on
+the [palettegen/paletteuse filters](https://ffmpeg.org/ffmpeg-filters.html#palettegen).
+Constraining both output dimensions bounds portrait images too; width-only scaling does not.
+The [codec options](https://ffmpeg.org/ffmpeg-codecs.html) describe thread and pixel limits.
+`max_alloc` bounds one allocation, not total RSS; do not claim it is a hard process memory limit.
+Deployment capacity must include decoded frames/filter buffers for every admitted conversion,
+not just file bytes. No whole-video frame queue or in-memory media-file capture is allowed.
+
+**Alternatives considered**: One-pass global palette can accumulate frames; per-frame palettes
+change color consistency; extra processes/services or a generalized transcoding framework add
+unneeded architecture. A deployment-wide memory limit does not replace per-operation bounds.
+
+### File and network boundary
+
+**Decision**: FFmpeg only receives application-generated local paths. Force MOV/MP4 input,
+`enable_drefs=0`, `use_absolute_path=0`, and input protocol whitelist `file`; palette input is forced
+PNG/image input. Encode palette/GIF output to `pipe:1` into the runner's bounded binary-file sink,
+not directly to a provider-selected path. GIF validation forces GIF input and ignores stored looping.
+Apply format/protocol restrictions to every input, not just the first.
+
+**Rationale**: A [protocol whitelist](https://ffmpeg.org/ffmpeg-protocols.html) prevents network
+protocols but is not a filesystem sandbox. Disable MOV external data references according to
+[MOV demuxer options](https://ffmpeg.org/ffmpeg-formats.html#mov_002fmp4_002f3gp), use generated
+paths in a private workspace, and retain deployment egress policy. Fixed filter expressions and
+argument arrays prevent metadata-driven command or filter injection.
+
+**Alternatives considered**: URL input bypasses SafeHttpClient's SSRF policy; file-only whitelist
+without controlling references is incomplete; shell command strings violate the constitution.
+
+### Hard output byte cap and completed GIF validity
+
+**Decision**: Extend the existing runner narrowly with an optional binary stdout file sink.
+Palette bytes cap at 16 KiB; GIF bytes cap at `MAX_MEDIA_BYTES`. Stream to an exclusively created
+partial file, refuse the first over-limit byte, terminate/await FFmpeg, and unlink the partial.
+Do not use `-fs` to truncate a conversion into an apparently successful shorter GIF.
+Stat/lstat the completed partial, inspect complete GIF block boundaries through a bounded stream,
+require a real trailer, at least one complete image, and bounded dimensions, then fully decode with
+the pinned FFmpeg (`-xerror`, `-err_detect explode`, forced GIF, `-ignore_loop 1`, null muxer).
+Reject any structural/decode error before controlled rename to the final GIF. The null-muxer
+validation produces no media output file and cannot loop forever on animation metadata.
+
+**Rationale**: [FFmpeg's `-fs` option](https://ffmpeg.org/ffmpeg.html) may overshoot and stops writing
+early. A byte-counted sink makes the storage cap authoritative rather than advisory. Zero exit and
+GIF signature do not prove completeness; the [GIF demuxer](https://ffmpeg.org/ffmpeg-formats.html#gif)
+has loop behavior and its [source](https://ffmpeg.org/doxygen/trunk/libavformat_2gifdec_8c_source.html)
+includes tolerant EOF handling. Structural traversal plus strict whole-file decoding covers both
+truncation and invalid image payloads without implementing a new LZW decoder.
+
+**Alternatives considered**: Post-exit size checks alone do not enforce the write cap; polling file
+size permits overshoot; signature/trailer-only checks miss broken blocks or undecodable pixels;
+ffprobe alone does not prove every frame decodes. A stdout sink reuses the existing process boundary.
+
+### Shared budget, cleanup, and verification
+
+**Decision**: One item processing budget covers palette, encoding, validation, and any fallback.
+Stage/job/caller signals preserve existing typed request-wide timeout/cancellation. Retire source,
+palette, and GIF files per attempt; recursive request cleanup remains the final safety net.
+If a child/stream cannot close or prior artifacts cannot be removed after bounded retries, an
+internal fatal-resource callback aborts the existing service controller and initiates bounded
+shutdown before permit reuse. Keep successful deliveries and primary outcomes; ordinary item
+failures and recovered cleanup retries do not stop unrelated jobs. Final cleanup exhaustion also
+stops acquisition; operator remediation is required before restart with orphaned artifacts.
+
+**Rationale**: Fresh per-pass deadlines can exceed the original job; existing fallback keeps finalized
+MP4s until request cleanup and would otherwise accumulate GIFs. Shared budgets and generated paths
+make later-item isolation and aggregate storage verifiable.
+
+**Alternatives considered**: Separate stage timers for each pass, detached children, and best-effort
+path reuse hide leaks or extend processing. A new scheduler is unnecessary.
+
+**Verification**: Fake runners/filesystems/clocks establish routing, bounds, faults, and lifecycle.
+A separate required controlled integration lane uses the approved FFmpeg binary and a synthetic
+local MP4 to prove real GIF conversion and complete decoding; no live Telegram/X/network. Do not
+silently skip the integration lane at feature completion. All Phase 0 unknowns are resolved here;
+the exact approved executable version is deployment configuration, not a planning clarification.

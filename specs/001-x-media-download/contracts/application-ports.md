@@ -2,12 +2,16 @@
 
 These conceptual strict-TypeScript contracts define dependency direction. Exact syntax may be refined test-first, but semantics/ownership remain stable. No interface accepts grammY, yt-dlp, Undici, child-process, or raw environment types.
 
+**Updated**: 2026-10-03. Existing capabilities are retained; planned sound-aware fields, signatures,
+ownership, and failure behavior are frozen in [sound-aware-media.md](./sound-aware-media.md).
+
 ## Primary use case
 
 ```text
 DownloadPostMedia.execute({
   destination: DeliveryDestination,
   messageText: string,
+  candidateUrl: string,
   requestId: RequestId,
   signal: AbortSignal
 }) -> Promise<RequestOutcome>
@@ -19,7 +23,7 @@ It orchestrates validation, admission, workspace, discovery, selection, per-item
 
 ```text
 recognizes(candidate: URL) -> boolean
-validate(candidate: URL) -> PostReference | InvalidUrl | UnsupportedPostUrl
+validate(candidate: string) -> PostReference | InvalidUrl | UnsupportedPostUrl
 resolve(post: PostReference, context: OperationContext)
   -> Promise<readonly DiscoveredMedia[]>
 ```
@@ -31,22 +35,34 @@ resolve(post: PostReference, context: OperationContext)
   It receives only the canonical allowed post URL; yt-dlp egress is separate from `SafeHttpClient`
   controls, has no cookies/credentials/plugins/remote components, and is metadata-only.
 - Compose one `XMediaProvider` directly; no registry/plugin lifecycle.
+- Resolve carries conservative item audio state and four-state per-format audio evidence. Aggregate
+  before direct/size filtering; GIF labels never override uncertainty or known sound.
 
 ## ProcessRunner
 
 ```text
 run({
   executable: trusted configured path,
+  stage: provider | processing,
   args: readonly string[],
   cwd?: controlled path,
   timeoutMs: number,
   stdoutLimitBytes: number,
   stderrLimitBytes: number,
+  stdoutFile?: { path: generated partial path, maxBytes: number },
   signal: AbortSignal
 }) -> Promise<ProcessResult>
+closeResources() -> Promise<void>  // bounded drain for shutdown; no new process may start
 ```
 
 Always direct-spawns with `shell: false`. It rejects output overflow, kills/awaits the child on timeout or cancellation, and returns bounded output plus exit metadata. Callers cannot supply shell command strings or uncontrolled environment/cwd.
+
+Binary stdout can stream to an exclusive bounded file sink instead of UTF-8 capture. The first
+over-limit byte stops the child and deletes the partial; result is not successful until the sink
+closes. Retain yt-dlp `checkVersion`; FFmpeg has its own bounded `-version` verifier. Error stages
+and ordinary failure codes follow the request, preserving typed timeout/cancellation reasons.
+Completed nonzero provider exit results remain available for existing inaccessible/rate-limit
+mapping. The runner does not replace every unsuccessful yt-dlp exit with `ProviderOutputInvalid`.
 
 ## RepresentationSelector
 
@@ -55,33 +71,42 @@ select(media: DiscoveredMedia, limits: DeliveryLimits)
   -> readonly MediaRepresentation[]
 ```
 
-Pure/deterministic; retains only progressive HTTPS MP4 direct-send candidates and orders known size
+Pure/deterministic; retains only progressive HTTPS MP4 candidates compatible with item audio state and orders known size
 eligibility, direct-compatibility evidence, pixel area, bitrate, duration, then source index; absent
 or invalid numeric values compare as zero and unknown size is stream-enforced. It returns a non-empty
-best-first bounded fallback list or a typed size/compatibility error. Provider metadata is advisory.
+best-first bounded fallback list or a typed size/compatibility error. Known sound requires confirmed
+audio evidence on every selected fallback; unknown keeps existing video ranking; silent requires
+confirmed silent AVC conversion input. Provider metadata remains advisory at the HTTP boundary.
 
 ## MediaDownloader
 
 ```text
 download({
   representation: MediaRepresentation,
+  media: DiscoveredMedia,
   workspace: TemporaryWorkspace,
-  position: number,
   limits: DownloadLimits,
   signal: AbortSignal
 }) -> Promise<DownloadedMedia>
 ```
 
 Owns URL, DNS, connected-address, redirect, status/type, timeout, byte, stream, and partial-file enforcement. It uses `Accept-Encoding: identity`, rejects non-identity encoding, zero/invalid type bodies, missing or malformed redirect locations, loops, and unsafe revalidated hops; `Content-Length` is advisory and the first byte above the cap aborts/deletes the partial. It uses generated workspace paths and returns only a complete finalized file with stable error mapping.
+Copies item audioPresence into downloaded provenance. It does not infer absence from the selected
+representation or initiate conversion.
 
 ## MediaProcessor
 
 ```text
-prepare(media: DownloadedMedia, context: OperationContext)
+prepare(media: DownloadedMedia, context: OperationContext,
+        workspace: TemporaryWorkspace, budget: ProcessingBudget)
   -> Promise<PreparedMedia>
 ```
 
-The initial adapter validates direct Telegram compatibility and returns the same owned file with `transformed: false`. A concrete FFmpeg adapter can replace it later only for demonstrated need.
+The direct adapter validates video MP4 passthrough and returns the source upload artifact with
+`transformed:false`. The planned GIF adapter delegates audio/uncertain video, converts only confirmed
+silence using local generated paths, and returns a separate fully validated GIF with
+`transformed:true`. All passes/validation/fallback share the supplied item budget. See the sound-aware
+contract for validation, resource, and cleanup rules; no general transformation graph is introduced.
 
 ## MediaDelivery
 
@@ -93,6 +118,8 @@ deliver(destination: DeliveryDestination,
 ```
 
 Uploads to the exact originating destination, selects video/animation from prepared media, applies a finite deadline, and exposes no Telegram types/errors inward. It returns `DeliveryDestinationUnavailable` only for an authoritative permanent destination-level rejection (blocked bot, removed bot, missing/inaccessible destination, missing send permission, or an explicitly permanent equivalent). Individual upload failures, transient network/server failures, timeouts, rate limits, media-specific rejections, and unknown errors remain `TelegramDeliveryFailed` or their existing typed error.
+Uploads `PreparedMedia.deliveryPath`, not necessarily the downloaded source. Valid GIF artifacts
+use `sendAnimation`; audio-bearing/uncertain MP4 artifacts use `sendVideo`.
 
 ## TemporaryWorkspaceFactory
 
@@ -106,6 +133,14 @@ exclusive, application-owned paths below it. `.part` and final files remain on t
 rename failure is an item failure. Cleanup is idempotent, recursive, and always called from use-case
 `finally`; a cleanup failure emits `CleanupFailed` safe structured context without replacing the
 primary outcome.
+
+Workspace exposes generated palette/GIF partial/final paths, safe finalization, `removeConversion`,
+and idempotent `removeItem`. Orchestration retires all attempt files before fallback/next item and
+does not acquire more if a bounded cleanup retry cannot clear them. Request-finally cleanup remains
+the final safety net. No other owner derives output paths from provider filenames.
+Exhausted final cleanup or unconfirmed child closure invokes the internal fatal-resource callback
+defined in the sound-aware contract, synchronously stopping service acquisition before permit reuse
+and initiating existing bounded shutdown. Ordinary failures retain unrelated-job isolation.
 
 ## AdmissionControl
 

@@ -1,5 +1,12 @@
 # Sound-Aware GIF Conversion Implementation Plan
 
+**Superseded execution detail, 2026-10-03**: Retained as planning input, not a second task authority.
+Use the updated [Spec Kit plan](../../../specs/001-x-media-download/plan.md) and
+[contracts](../../../specs/001-x-media-download/contracts/sound-aware-media.md), then refresh the
+existing Spec Kit tasks. The updated plan freezes shared contracts before parallel work, gives
+exclusive file owners, uses an FFmpeg-specific version probe, hard-counted binary output, and
+complete GIF structure/decode validation. Do not execute the older steps below unchanged.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Send sound-bearing X clips as videos and convert explicitly silent clips into real GIF files for Telegram animation delivery.

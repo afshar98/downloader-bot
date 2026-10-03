@@ -2,6 +2,14 @@
 
 ## Status
 
+**Planning reconciliation 2026-10-03**: This dated design is preserved as an input. The updated
+[Spec Kit specification](../../../specs/001-x-media-download/spec.md),
+[plan](../../../specs/001-x-media-download/plan.md), and
+[sound-aware contracts](../../../specs/001-x-media-download/contracts/sound-aware-media.md)
+govern completion. They supersede direct-format-only audio classification, GIF-label override,
+and signature-only validation, and define shared-budget, hard-output-cap, and storage ownership.
+No production implementation is claimed by this planning update.
+
 Design approved in chat on 2026-09-30. Implementation plan and code are pending written-spec
 review.
 
