@@ -18,6 +18,8 @@ const schema = z
     TELEGRAM_BOT_TOKEN: z.string().trim().min(1),
     YT_DLP_PATH: z.string().trim().min(1).default('yt-dlp'),
     YT_DLP_EXPECTED_VERSION: z.string().trim().min(1),
+    FFMPEG_PATH: z.string().trim().min(1),
+    FFMPEG_EXPECTED_VERSION: z.string().trim().min(1),
     EXTRACTION_TIMEOUT_MS: boundedInteger(30_000, 1, 300_000),
     DOWNLOAD_TIMEOUT_MS: boundedInteger(60_000, 1, 300_000),
     PROCESSING_TIMEOUT_MS: boundedInteger(60_000, 1, 300_000),
@@ -51,6 +53,8 @@ export type RuntimeConfig = Readonly<{
   telegramBotToken: string;
   ytDlpPath: string;
   ytDlpExpectedVersion: string;
+  ffmpegPath: string;
+  ffmpegExpectedVersion: string;
   extractionTimeoutMs: number;
   downloadTimeoutMs: number;
   processingTimeoutMs: number;
@@ -109,6 +113,8 @@ export async function loadConfig(
     telegramBotToken: parsed.data.TELEGRAM_BOT_TOKEN,
     ytDlpPath: parsed.data.YT_DLP_PATH,
     ytDlpExpectedVersion: parsed.data.YT_DLP_EXPECTED_VERSION,
+    ffmpegPath: parsed.data.FFMPEG_PATH,
+    ffmpegExpectedVersion: parsed.data.FFMPEG_EXPECTED_VERSION,
     extractionTimeoutMs: parsed.data.EXTRACTION_TIMEOUT_MS,
     downloadTimeoutMs: parsed.data.DOWNLOAD_TIMEOUT_MS,
     processingTimeoutMs: parsed.data.PROCESSING_TIMEOUT_MS,

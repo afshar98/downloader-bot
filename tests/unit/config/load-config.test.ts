@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../src/config/load-config.js';
 
 const tempRoots: string[] = [];
+const ffmpegSettings = {
+  FFMPEG_PATH: '/opt/ffmpeg/bin/ffmpeg',
+  FFMPEG_EXPECTED_VERSION: 'approved-build',
+};
 
 async function temporaryDirectory(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'downloader-config-test-'));
@@ -22,6 +26,7 @@ describe('loadConfig', () => {
   it('loads immutable defaults from explicit input and requires a bot token', async () => {
     const directory = await temporaryDirectory();
     const config = await loadConfig({
+      ...ffmpegSettings,
       TELEGRAM_BOT_TOKEN: '123456:secret',
       TEMP_DIR: directory,
       YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
@@ -31,6 +36,8 @@ describe('loadConfig', () => {
       telegramBotToken: '123456:secret',
       ytDlpPath: 'yt-dlp',
       ytDlpExpectedVersion: 'yt-dlp 2026.09.01',
+      ffmpegPath: '/opt/ffmpeg/bin/ffmpeg',
+      ffmpegExpectedVersion: 'approved-build',
       extractionTimeoutMs: 30_000,
       downloadTimeoutMs: 60_000,
       processingTimeoutMs: 60_000,
@@ -53,6 +60,38 @@ describe('loadConfig', () => {
   });
 
   it.each([
+    ['FFMPEG_PATH', undefined],
+    ['FFMPEG_PATH', ''],
+    ['FFMPEG_PATH', '  '],
+    ['FFMPEG_EXPECTED_VERSION', undefined],
+    ['FFMPEG_EXPECTED_VERSION', ''],
+    ['FFMPEG_EXPECTED_VERSION', '\t '],
+  ])('rejects missing or blank %s', async (key, value) => {
+    const directory = await temporaryDirectory();
+    await expect(
+      loadConfig({
+        ...ffmpegSettings,
+        TELEGRAM_BOT_TOKEN: 'token',
+        YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
+        TEMP_DIR: directory,
+        [key]: value,
+      }),
+    ).rejects.toThrow(key);
+  });
+
+  it('normalizes FFmpeg settings without inventing a version', async () => {
+    const config = await loadConfig({
+      TELEGRAM_BOT_TOKEN: 'token',
+      YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
+      TEMP_DIR: await temporaryDirectory(),
+      FFMPEG_PATH: ' /opt/trusted/bin/ffmpeg ',
+      FFMPEG_EXPECTED_VERSION: ' approved-distribution-build ',
+    });
+    expect(config.ffmpegPath).toBe('/opt/trusted/bin/ffmpeg');
+    expect(config.ffmpegExpectedVersion).toBe('approved-distribution-build');
+  });
+
+  it.each([
     ['EXTRACTION_TIMEOUT_MS', '0'],
     ['DOWNLOAD_TIMEOUT_MS', '-1'],
     ['PROCESSING_TIMEOUT_MS', 'nope'],
@@ -71,6 +110,7 @@ describe('loadConfig', () => {
     const directory = await temporaryDirectory();
     await expect(
       loadConfig({
+        ...ffmpegSettings,
         TELEGRAM_BOT_TOKEN: 'token',
         YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
         TEMP_DIR: directory,
@@ -84,6 +124,7 @@ describe('loadConfig', () => {
     async (tempDir) => {
       await expect(
         loadConfig({
+          ...ffmpegSettings,
           TELEGRAM_BOT_TOKEN: 'token',
           YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
           TEMP_DIR: tempDir,
@@ -101,6 +142,7 @@ describe('loadConfig', () => {
 
     await expect(
       loadConfig({
+        ...ffmpegSettings,
         TELEGRAM_BOT_TOKEN: 'token',
         YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
         TEMP_DIR: link,
@@ -112,6 +154,7 @@ describe('loadConfig', () => {
     const directory = await temporaryDirectory();
     await expect(
       loadConfig({
+        ...ffmpegSettings,
         TELEGRAM_BOT_TOKEN: 'token',
         YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
         TEMP_DIR: directory,
@@ -120,6 +163,7 @@ describe('loadConfig', () => {
     ).rejects.toThrow(/MAX_MEDIA_BYTES/);
     await expect(
       loadConfig({
+        ...ffmpegSettings,
         TELEGRAM_BOT_TOKEN: 'token',
         YT_DLP_EXPECTED_VERSION: 'yt-dlp 2026.09.01',
         TEMP_DIR: directory,
