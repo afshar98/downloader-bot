@@ -15,9 +15,16 @@ supported video or animated media, with clear feedback and safe failure handling
 
 - Q: If a job deadline or cancellation occurs after some media items are delivered but before all remaining items are attempted, what should the bot do? → A: Stop remaining work at the deadline or cancellation, preserve successful deliveries, and send a partial-result summary identifying unattempted items as timed out or cancelled.
 - Q: Which URL forms should the bot accept as supported X/Twitter post URLs? → A: Only HTTPS `x.com` or `twitter.com` status URLs with an optional `www` prefix; query parameters and fragments are ignored, while mobile hosts, short links, HTTP, credentials, and non-default ports are rejected.
-- Q: For the MVP, must the bot support transforming media that is not already Telegram-deliverable, or may it fail safely when no directly deliverable representation exists? → A: The MVP supports directly deliverable media only; if no compatible representation exists, it returns a clear processing or delivery failure.
+- Q: For the MVP, must the bot support transforming media that is not already Telegram-deliverable, or may it fail safely when no directly deliverable representation exists? → A: Originally direct delivery only; superseded by the bounded silent-media GIF conversion decision in Session 2026-10-03 below.
 - Q: What maximum media size should the MVP allow for each Telegram upload? → A: Use a default 49 MiB application limit, configurable downward but never above the supported Telegram cloud upload ceiling.
 - Q: How should the MVP handle duplicate Telegram updates or a user resubmitting the same X/Twitter URL? → A: Process each received request independently with no deduplication state; duplicate deliveries are acceptable in this stateless MVP.
+
+### Session 2026-10-03
+
+- Confirmed audio-bearing X media MUST select an audio-bearing progressive MP4 and use `sendVideo`. If no such representation fits delivery constraints, fail the item safely rather than discard sound.
+- Confirmed silent X media MUST be converted into a real GIF file before upload and use `sendAnimation`. Sending an unchanged silent MP4 as an animation does not satisfy this requirement.
+- Unknown or contradictory audio metadata MUST remain on the video path. An explicit GIF/animation label MUST NOT override audio evidence or uncertainty.
+- Bounded FFmpeg conversion is allowed for the silent MP4-to-GIF path only. General transcoding, HLS assembly, split-stream merging, remuxing, duration repair, and size-reduction conversion remain outside scope. Existing safety, admission, deadline, partial-result, and cleanup requirements remain in force.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -43,26 +50,38 @@ receives the selected video without requiring further user action.
    claiming successful delivery.
 4. **Given** a post containing multiple supported media items, **When** the user submits its URL,
    **Then** the bot attempts to deliver every supported item to the originating chat.
+5. **Given** confirmed audio-bearing media with both silent and audio-bearing MP4 representations,
+   **When** the silent representation ranks higher in quality, **Then** the bot selects an eligible
+   audio-bearing MP4 and delivers it with `sendVideo`, preserving sound.
+6. **Given** confirmed audio-bearing media without an eligible audio-bearing MP4, **When** the user
+   submits its URL, **Then** the item fails safely without uploading a silent substitute.
+7. **Given** missing, unknown, or contradictory audio metadata, including media labeled as a GIF,
+   **When** the user submits its URL, **Then** an eligible MP4 uses `sendVideo` without GIF conversion.
 
 ---
 
 ### User Story 2 - Receive Animated Media (Priority: P2)
 
-A user sends a valid, publicly accessible X/Twitter post URL containing GIF or animated media and
-receives a playable result in the same Telegram chat.
+A user sends a valid, publicly accessible X/Twitter post URL containing confirmed silent video or
+animated media and receives a real GIF uploaded as an animation in the same Telegram chat.
 
 **Why this priority**: Animated media is explicitly included in the initial feature but is secondary
 to the primary video workflow.
 
-**Independent Test**: Submit a valid post URL with supported animated media and verify that the same
-chat receives a playable representation.
+**Independent Test**: Submit a valid post URL with confirmed silent media and verify that the bot
+produces a valid GIF file and uploads that file through `sendAnimation` to the originating chat.
 
 **Acceptance Scenarios**:
 
-1. **Given** a publicly accessible X/Twitter post with supported animated media, **When** the user
-   sends its URL, **Then** the bot delivers a playable representation to the same chat.
-2. **Given** animated media with no directly deliverable representation, **When** the user submits
-   its post URL, **Then** the bot returns a clear processing or delivery failure.
+1. **Given** confirmed silent media with an eligible progressive MP4 source, **When** the user
+   sends its URL, **Then** the bot converts it into a valid GIF and uploads that GIF with
+   `sendAnimation` to the same chat; the uploaded file is not the source MP4 renamed as a GIF.
+2. **Given** confirmed silent media with no eligible source or a failed, invalid, empty, or oversized
+   conversion output, **When** the user submits its post URL, **Then** the item fails safely,
+   temporary artifacts are removed, and later supported items continue within the job bounds.
+3. **Given** cancellation or job deadline expiry during conversion, **When** the operation stops,
+   **Then** the existing request-wide terminal policy applies, the child process is terminated,
+   source and converted artifacts are cleaned up, and remaining items are not attempted.
 
 ---
 
@@ -108,7 +127,7 @@ complete.
    submitted, **Then** the user is told that no supported media was found.
 3. **Given** supported media whose retrieval fails, **When** the request is processed, **Then** the
    user is told that the item retrieval failed and later supported items continue to be attempted.
-4. **Given** a supported media item cannot be prepared for direct delivery, **When** the request is
+4. **Given** a supported media item cannot be prepared for its required delivery path, **When** the request is
    processed, **Then** the user is told that the item processing failed and later supported items
    continue to be attempted.
 5. **Given** a prepared file that cannot be delivered, **When** delivery is attempted, **Then** the
@@ -143,6 +162,13 @@ complete.
 - The available representations vary in quality, size, format, or deliverability.
 - The preferred representation exceeds the delivery service's current file-size or duration limits.
 - No directly deliverable representation exists for a supported item.
+- An audio-bearing item offers a higher-quality silent representation, or audio exists only in an
+  unsupported representation; selection must not remove known sound.
+- Audio metadata is absent, blank, conflicting within a format, or inconsistent with a GIF label.
+- One silent candidate exists alongside candidates with unknown audio; this does not confirm silence.
+- GIF conversion produces missing, empty, malformed, truncated, or oversized output, fails to spawn,
+  exits unsuccessfully, stalls, or is interrupted during shutdown.
+- Source MP4 and generated GIF coexist in the workspace and both require bounded storage and cleanup.
 - Retrieval or delivery times out or is cancelled partway through.
 - A job deadline or cancellation occurs after some supported items are delivered but before later
 - Telegram reports a permanent destination-level rejection, such as bot blocked, removed, missing or
@@ -182,8 +208,9 @@ complete.
 - **FR-007**: If a post contains both supported and unsupported media, the system MUST process the
   supported media and ignore unsupported media.
 - **FR-008**: For a supported media item, the system MUST select the highest-quality available
-  representation that is compatible with successful delivery; a lower-quality representation MAY
-  be selected when necessary to satisfy delivery constraints.
+  representation that is compatible with its audio-presence state and required delivery path;
+  a lower-quality representation MAY be selected when necessary to satisfy delivery constraints.
+  Confirmed audio-bearing items MUST select an audio-bearing MP4; fallback MUST NOT discard sound.
 - **FR-009**: The system MUST retrieve selected media without requiring the user to interact with
   X/Twitter directly.
 - **FR-010**: When a post contains multiple supported media items, the system MUST select, retrieve,
@@ -201,10 +228,12 @@ complete.
   item-local. Remaining items MUST be classified as unattempted for the applicable terminal reason.
   A partial-result summary is required after timeout/cancellation when the destination remains
   usable; no final Telegram summary is attempted after `DeliveryDestinationUnavailable`.
-- **FR-011**: The MVP MUST deliver a supported media item directly when a compatible representation
-  is available. If no directly deliverable representation exists within the applicable constraints,
-  the system MUST return a clear processing or delivery failure; media transformation is outside the
-  MVP scope and MAY be added later without changing the user-facing X/Twitter workflow.
+- **FR-011**: The MVP MUST deliver confirmed audio-bearing media as an audio-bearing MP4 through
+  `sendVideo`, convert confirmed silent MP4 media into a real GIF for `sendAnimation`, and keep
+  unknown or contradictory audio metadata on the unconverted MP4 `sendVideo` path. A GIF label
+  alone MUST NOT authorize conversion. Bounded FFmpeg conversion is permitted only for confirmed
+  silent media. If no eligible source or valid bounded output exists, return a safe item failure;
+  do not substitute a silent video for known audio or an unchanged MP4 for the required GIF.
 - **FR-012**: The system MUST send each successful result to the same Telegram chat from which the
   request originated.
 - **FR-013**: The system MUST use the canonical outcome taxonomy below. User-sendable outcomes MUST
@@ -234,6 +263,24 @@ complete.
   without changing the user-facing X/Twitter workflow defined here.
 - **FR-021**: The MVP MUST process duplicate Telegram updates and user resubmissions independently
   without persistent or in-memory deduplication state; duplicate deliveries are acceptable.
+- **FR-022**: Audio presence MUST be derived conservatively from validated per-representation audio
+  metadata. Reliable evidence of audio prevents silent classification, including when the
+  audio-bearing source cannot be delivered directly. Conflicting audio fields within a representation
+  make the item unknown. Otherwise, explicit audio evidence confirms audio-bearing media; silence
+  is confirmed only when every usable supported video representation explicitly reports no audio.
+  Missing or ambiguous evidence without confirmed audio is unknown. Distinct sound-bearing and
+  silent alternatives are not by themselves contradictory; the item is audio-bearing.
+- **FR-023**: Conversion MUST use a trusted deployment-pinned FFmpeg executable verified before
+  polling, structured argument-array execution without a shell, generated workspace-local input
+  and output paths, bounded diagnostics, and explicit finite processing and job deadlines. FFmpeg
+  MUST consume the downloaded local source rather than fetch a provider URL. Conversion MUST have
+  finite frame-rate, dimensions, output-byte, concurrency, and temporary-storage bounds. Completed
+  output MUST be verified as a nonempty valid GIF within the media cap before delivery; a suffix,
+  successful process exit, or GIF signature alone MUST NOT make an invalid/truncated file deliverable.
+  Partial conversion outputs MUST be removed on failure and all source/output files on request cleanup.
+  Conversion failure is item-local `MediaProcessingFailed`, output overflow is `MediaTooLarge`, and
+  timeout/cancellation retain the existing request-wide outcomes. No process output or paths may
+  appear in user responses or logs.
 
 ### Deterministic MVP Policy
 
@@ -251,7 +298,7 @@ complete.
 | `ProviderOutputInvalid` | User-sendable request outcome | Media details could not be read safely; retry later. Never expose provider output. |
 | `MediaDownloadFailed` | Item-level outcome | This item could not be retrieved; later items continue; retry may help. |
 | `MediaTooLarge` | Item-level outcome | This item exceeds the configured media limit. |
-| `MediaProcessingFailed` | Item-level outcome | This item has no supported direct-delivery representation or could not be prepared. |
+| `MediaProcessingFailed` | Item-level outcome | This item has no eligible source for its required delivery path or could not be prepared, including failed or invalid GIF conversion. |
 | `TelegramDeliveryFailed` | Item-level outcome | This item could not be sent; later items continue unless a request-wide terminal outcome occurs. |
 | `OperationTimedOut` | Request-wide terminal | Stop remaining work; preserve successes; send timeout copy or partial summary only if delivery remains usable. |
 | `OperationCancelled` | Request-wide terminal | Stop remaining work; preserve successes; send cancellation copy or partial summary only if delivery remains usable. |
@@ -259,7 +306,29 @@ complete.
 | `DeliveryDestinationUnavailable` | Logged-only request-wide terminal | Stop delivery, preserve successes, classify remaining items unattempted, and do not send a final summary. |
 | `CleanupFailed` | Logged-only secondary outcome | Record safe structured operator context; never replace the primary outcome or expose paths to users. |
 
-**Direct delivery.** “Directly deliverable” means an unmodified, progressive HTTPS MP4 representation whose validated metadata identifies video/animation kind, `mp4` container, direct Telegram send path, and bytes within `MAX_MEDIA_BYTES`; video is sent with `sendVideo`, animation with `sendAnimation`. No FFmpeg, transcoding, remuxing, GIF conversion, or duration repair occurs. A representation missing any required compatibility metadata is ineligible. This definition is used by FR-008, FR-011, and SC-001; a supported X item without one fails safely as `MediaProcessingFailed`/unsupported direct delivery.
+**Source eligibility and delivery.** An eligible source is a progressive HTTPS MP4 with validated
+container, video compatibility, and bytes within `MAX_MEDIA_BYTES`; HLS, split streams, and missing
+required compatibility metadata remain ineligible. Unknown source size remains eligible only with
+streamed enforcement. Audio classification precedes quality ranking and size filtering: known sound
+does not become silence when its representation is oversized or otherwise undeliverable. Confirmed
+audio-bearing items require an explicitly audio-bearing eligible source and upload it unchanged
+with `sendVideo`. Unknown or contradictory items use an eligible MP4 unchanged with `sendVideo`.
+Confirmed silent items require a silent eligible source, bounded local conversion, and upload of
+the resulting valid `.gif` with `sendAnimation`. Explicit GIF labels never override this policy.
+Only the two video paths are directly deliverable; the silent path is deliverable after conversion.
+FR-008, FR-011, and SC-001 use these definitions. No eligible source yields `MediaProcessingFailed`
+(or `MediaTooLarge` when otherwise eligible sources all exceed the cap).
+
+**Bounded GIF conversion.** The selected local MP4 is converted using a fixed palette-based profile
+of 15 frames per second and maximum width 640 pixels without upscaling, preserving aspect ratio.
+The processing deadline is `PROCESSING_TIMEOUT_MS` (default 60 seconds), bounded by the existing
+115-second whole-job deadline; neither starts a fresh job lifetime. Generated GIF bytes are limited
+to `MAX_MEDIA_BYTES`, independently of the source MP4. An encoder byte-stop option is only an early
+guard; actual output size and GIF validity must be checked before upload. Empty, missing, malformed,
+or truncated output is `MediaProcessingFailed`; oversized output is `MediaTooLarge`. Both source
+and output require explicit workspace ownership, aggregate storage bounds, and cleanup, including
+before a bounded representation fallback reuses an item path. There is one active conversion per
+job under existing admission limits. General media repair or transformation remains excluded.
 
 **Ordering.** Eligible representations are ordered deterministically: known oversize makes a candidate ineligible; then direct-compatibility evidence; then known pixel area (unknown is zero); then known bitrate (unknown is zero); then known duration (unknown is zero); then stable provider source order. Unknown size remains eligible only with streamed enforcement. Missing/invalid numeric metadata is treated as unknown, never as a favorable value.
 
@@ -278,9 +347,11 @@ On SIGINT/SIGTERM the runner stops accepting updates, deterministically cancels 
 - **Post Reference**: A validated reference to one X/Twitter post, independent of Telegram message
   details.
 - **Discovered Media**: A supported media item associated with a post, including media type and the
-  available representations relevant to selection.
+  conservative audio-presence state and available representations relevant to selection.
 - **Media Representation**: One retrievable version of a media item, characterized by quality,
-  format, size or duration when known, and delivery suitability.
+  format, audio evidence, size or duration when known, and delivery suitability.
+- **Prepared Media**: A validated upload artifact with its own delivery path, format, delivery kind,
+  and transformation status; converted GIFs are distinct from their downloaded MP4 source.
 - **Delivery Result**: The terminal outcome returned to the originating chat: delivered media or one
   defined safe failure category.
 - **Temporary Resource**: Request-scoped media or external resource that exists only while the
@@ -291,13 +362,17 @@ On SIGINT/SIGTERM the runner stops accepting updates, deterministically cancels 
 ### Measurable Outcomes
 
 - **SC-001**: In acceptance testing, 100% of valid, accessible fixtures result in every supported
-  item satisfying the Deterministic MVP Policy definition of directly deliverable (progressive HTTPS
-  MP4, validated kind/container/direct-send metadata, streamed size at or below 51,380,224 bytes)
-  being sent with its defined Telegram method to the originating chat; unsupported direct forms are
-  counted only as their safe per-item failure, never as a required delivery.
+  item satisfying the Deterministic MVP Policy being sent to its originating chat: confirmed audio
+  uses an audio-bearing MP4 and `sendVideo`; confirmed silence produces a valid GIF and uses
+  `sendAnimation`; unknown/contradictory audio uses MP4 and `sendVideo`. Source and upload artifacts
+  are each at or below 51,380,224 bytes. Fixtures cover mixed audio/silent alternatives, missing and
+  contradictory audio fields, GIF labels with uncertain audio, no eligible audio-bearing source,
+  and conversion failures. Unsupported sources and invalid conversion outputs count only as safe
+  per-item failures, never as successful or required delivery.
 - **SC-002**: In a controlled acceptance run of 100 valid requests, each fixture contains one to four
-  directly deliverable media items no larger than 1 MiB, at most two requests execute concurrently,
-  the admission queue is not saturated, and injected provider, download, and delivery doubles each
+  eligible media items with source and upload artifacts no larger than 1 MiB, including confirmed
+  audio, confirmed silent, and unknown audio cases; at most two requests execute concurrently,
+  the admission queue is not saturated, and injected provider, download, processing, and delivery doubles each
   complete or fail deterministically within 100 ms without live network access. Measure elapsed
   monotonic time from handler acceptance of the request until the final delivery attempt or terminal
   feedback completes. Using the nearest-rank method, the 95th-percentile elapsed time MUST be no more
@@ -333,6 +408,12 @@ On SIGINT/SIGTERM the runner stops accepting updates, deterministically cancels 
   X/Twitter post URL; each retryable external or capacity outcome MUST advise retrying later; and
   non-retryable outcomes MUST NOT advise an ineffective retry. The review table MUST cover every
   error code and expose no secret or internal diagnostic.
+- **SC-007**: Deterministic conversion tests MUST reject missing, empty, invalid, truncated, and
+  oversized GIF output without calling delivery; cover spawn/exit failure, processing/job timeout,
+  cancellation, and shutdown; prove later-item continuation for item-local failure; and observe
+  process termination, source/output cleanup, and permit release. Separate controlled conversion
+  integration coverage MUST demonstrate a decodable real GIF, rather than a renamed MP4 or a
+  signature-only stub. Startup coverage MUST prevent polling on missing or mismatched FFmpeg.
 
 ## Constitution Compliance *(mandatory)*
 
@@ -348,8 +429,8 @@ On SIGINT/SIGTERM the runner stops accepting updates, deterministically cancels 
   mandatory live Telegram or X/Twitter dependencies, and cover success, failure, cancellation,
   cleanup, isolation, and measurable timing.
 - **Simplicity and maintainability**: The MVP is stateless, supports one platform, directly delivers
-  compatible media without transformation, and excludes speculative persistence, caching, and
-  provider frameworks.
+  audio-bearing and uncertain media, uses one bounded FFmpeg adapter for confirmed silent media,
+  and excludes general transformation, speculative persistence, caching, and provider frameworks.
 
 No constitutional exception is requested by this specification. The technical plan must document
 the concrete boundaries, dependency justifications, resource values, and verification gates before
@@ -370,8 +451,9 @@ implementation begins.
 - When no representation can be delivered within applicable limits, the request ends with delivery
   failure feedback; splitting files or publishing external download links is outside this feature.
 - Exact safety policy, timeouts, and retry behavior will be decided and documented during planning.
-  The MVP delivers directly compatible representations only; transformation is outside the MVP
-  scope. The per-item upload limit defaults to 49 MiB and may only be lowered by configuration.
+  The MVP permits only bounded silent MP4-to-GIF conversion in addition to direct video delivery.
+  FFmpeg installation, version pinning, licensing, and resource accounting must be documented in
+  the technical plan. The per-item upload limit defaults to 49 MiB and may only be lowered by configuration.
 - Telegram and X/Twitter availability, rate limits, content restrictions, and delivery constraints
   are external dependencies that can affect an otherwise valid request.
 - Persistent user accounts, download history, caching, analytics, administrative controls, and
