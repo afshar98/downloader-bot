@@ -35,6 +35,7 @@ export class XMediaProvider implements MediaProvider {
     const stage = context.createStageSignal('provider', this.options.limits.extractionTimeoutMs);
     try {
       const request: ProcessExecution = {
+        stage: 'provider',
         executable: this.options.executable,
         args: [
           '--ignore-config',

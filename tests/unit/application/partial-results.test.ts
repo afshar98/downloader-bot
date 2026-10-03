@@ -31,9 +31,20 @@ function makeApp(deliver: MediaDelivery['deliver'], signal: AbortSignal) {
   };
   const workspace = {
     root: '/tmp/fake',
-    itemPaths: () => ({ partPath: '/tmp/fake/a.part', mediaPath: '/tmp/fake/a.mp4' }),
+    itemPaths: () => ({
+      partPath: '/tmp/fake/a.part',
+      mediaPath: '/tmp/fake/a.mp4',
+      palettePartPath: '/tmp/fake/a.palette.part',
+      palettePath: '/tmp/fake/a.palette.png',
+      gifPartPath: '/tmp/fake/a.gif.part',
+      gifPath: '/tmp/fake/a.gif',
+    }),
     finalizeItem: vi.fn(),
+    finalizePalette: vi.fn(),
+    finalizeGif: vi.fn(),
     removePartial: vi.fn(),
+    removeConversion: vi.fn(),
+    removeItem: vi.fn(),
   };
   const workspaceFactory = { create: vi.fn(async () => workspace), cleanup: vi.fn(async () => {}) };
   const downloader = {

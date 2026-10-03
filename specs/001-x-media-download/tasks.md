@@ -265,8 +265,8 @@ Test Criteria** below.
 
 **Purpose**: Freeze and migrate shared types and seams before parallel owners begin. This is a continuation of the completed feature, not a replacement for T001–T091.
 
-- [ ] T092 Define sound-aware model, processor, process, workspace, and processing-budget contract tests in `tests/unit/application/download-post-media.test.ts`, `tests/unit/media/direct-media-processor.test.ts`, `tests/unit/infrastructure/process-runner.test.ts`, and `tests/unit/infrastructure/temporary-workspace.test.ts`
-- [ ] T093 Migrate shared models/ports, builders, existing consumers, downloader state-copy, and interim video-only direct processor behavior to `src/application/models.ts`, `src/application/ports.ts`, `tests/support/builders.ts`, `src/media/safe-media-downloader.ts`, `src/media/direct-media-processor.ts`, and affected tests; make the T092 contract tests pass and run typecheck/build
+- [X] T092 Define sound-aware model, processor, process, workspace, and processing-budget contract tests in `tests/unit/application/download-post-media.test.ts`, `tests/unit/media/direct-media-processor.test.ts`, `tests/unit/infrastructure/process-runner.test.ts`, and `tests/unit/infrastructure/temporary-workspace.test.ts`
+- [X] T093 Migrate shared models/ports, builders, existing consumers, downloader state-copy, and interim video-only direct processor behavior to `src/application/models.ts`, `src/application/ports.ts`, `tests/support/builders.ts`, `src/media/safe-media-downloader.ts`, `src/media/direct-media-processor.ts`, and affected tests; make the T092 contract tests pass and run typecheck/build
 
 **Commit checkpoint S0**: Commit the frozen contracts and mechanical migrations together after focused tests, typecheck, and build pass. Do not split owners before this checkpoint.
 

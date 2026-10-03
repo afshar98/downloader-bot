@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -28,6 +28,10 @@ describe('TemporaryWorkspaceFactory', () => {
     expect(first.itemPaths(1)).toEqual({
       partPath: join(first.root, 'item-0001.part'),
       mediaPath: join(first.root, 'item-0001.mp4'),
+      palettePartPath: join(first.root, 'item-0001.palette.part'),
+      palettePath: join(first.root, 'item-0001.palette.png'),
+      gifPartPath: join(first.root, 'item-0001.gif.part'),
+      gifPath: join(first.root, 'item-0001.gif'),
     });
     expect(() => first.itemPaths(0)).toThrow(RangeError);
     expect(() => first.itemPaths(1.5)).toThrow(RangeError);
@@ -52,6 +56,26 @@ describe('TemporaryWorkspaceFactory', () => {
     await factory.cleanup(workspace);
     await factory.cleanup(workspace);
     await expect(lstat(workspace.root)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('finalizes conversion artifacts and removes them without deleting the source', async () => {
+    const parentDirectory = await createRoot();
+    const factory = new TemporaryWorkspaceFactory({ parentDirectory });
+    const workspace = await factory.create(createRequestId());
+    const paths = workspace.itemPaths(1);
+    await writeFile(paths.partPath, 'source');
+    await workspace.finalizeItem(1);
+    await writeFile(paths.palettePartPath, 'palette');
+    await workspace.finalizePalette(1);
+    await writeFile(paths.gifPartPath, 'gif');
+    await workspace.finalizeGif(1);
+
+    await workspace.removeConversion(1);
+    expect(await readdir(workspace.root)).toEqual(['item-0001.mp4']);
+    await workspace.removeItem(1);
+    await workspace.removeItem(1);
+    expect(await readdir(workspace.root)).toEqual([]);
+    await factory.cleanup(workspace);
   });
 
   it('rejects a symlinked parent before creating a workspace', async () => {

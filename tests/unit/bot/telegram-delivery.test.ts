@@ -5,7 +5,7 @@ import type { TelegramMediaApi } from '../../../src/bot/telegram-delivery.js';
 import { createOperationContext } from '../../../src/application/operation-context.js';
 import { TelegramDelivery } from '../../../src/bot/telegram-delivery.js';
 import { createRequestId } from '../../../src/shared/identifiers.js';
-import { preparedMedia } from '../../support/builders.js';
+import { preparedAnimationMedia, preparedMedia } from '../../support/builders.js';
 
 function context(signal = new AbortController().signal) {
   return createOperationContext({ requestId: createRequestId(), signal, jobTimeoutMs: 5_000 });
@@ -24,7 +24,7 @@ describe('TelegramDelivery', () => {
     const destination = '-10012345' as DeliveryDestination;
 
     await delivery.deliver(destination, preparedMedia(), operation);
-    await delivery.deliver(destination, preparedMedia({ deliveryKind: 'animation' }), operation);
+    await delivery.deliver(destination, preparedAnimationMedia(), operation);
 
     expect(api.sendVideo).toHaveBeenCalledWith(
       destination,

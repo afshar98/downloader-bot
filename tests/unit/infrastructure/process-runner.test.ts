@@ -36,6 +36,7 @@ function runnerFor(configure: (child: FakeChild) => void): {
 }
 
 const request = {
+  stage: 'provider' as const,
   executable: '/opt/bin/yt-dlp',
   args: ['--dump-single-json', '--', 'https://x.com/example/status/1'],
   cwd: '/tmp/controlled',

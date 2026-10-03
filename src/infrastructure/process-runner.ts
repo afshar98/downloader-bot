@@ -1,5 +1,6 @@
 import { spawn, type SpawnOptions } from 'node:child_process';
 import type { Readable } from 'node:stream';
+import type { ProcessExecution, ProcessExecutionResult } from '../application/models.js';
 import { applicationError, operationAbortError } from '../shared/errors.js';
 
 export interface ProcessChild {
@@ -17,22 +18,8 @@ export type ProcessSpawner = (
   options: SpawnOptions,
 ) => ProcessChild;
 
-export type ProcessRequest = Readonly<{
-  executable: string;
-  args: readonly string[];
-  cwd?: string;
-  timeoutMs: number;
-  stdoutLimitBytes: number;
-  stderrLimitBytes: number;
-  signal: AbortSignal;
-}>;
-
-export type ProcessResult = Readonly<{
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  signal: NodeJS.Signals | null;
-}>;
+export type ProcessRequest = ProcessExecution;
+export type ProcessResult = ProcessExecutionResult;
 
 export type ProcessRunnerOptions = Readonly<{
   spawn?: ProcessSpawner;
@@ -63,9 +50,7 @@ export class ProcessRunner {
     validateLimit(request.stdoutLimitBytes, 'stdoutLimitBytes', 1);
     validateLimit(request.stderrLimitBytes, 'stderrLimitBytes', 1);
     if (request.signal.aborted) {
-      return Promise.reject(
-        operationAbortError(request.signal.reason, 'provider'),
-      );
+      return Promise.reject(operationAbortError(request.signal.reason, 'provider'));
     }
 
     let child: ProcessChild;
@@ -128,10 +113,7 @@ export class ProcessRunner {
         }, this.killGraceMs);
         killTimer.unref?.();
       };
-      const onAbort = () =>
-        terminate(
-          operationAbortError(request.signal.reason, 'provider'),
-        );
+      const onAbort = () => terminate(operationAbortError(request.signal.reason, 'provider'));
       const timeoutTimer = setTimeout(
         () => terminate(applicationError('OperationTimedOut', 'provider')),
         request.timeoutMs,
@@ -181,6 +163,7 @@ export class ProcessRunner {
 
   async checkVersion(executable: string): Promise<string> {
     const result = await this.run({
+      stage: 'provider',
       executable,
       args: ['--version'],
       timeoutMs: 5_000,

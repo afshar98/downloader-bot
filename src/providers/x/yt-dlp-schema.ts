@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { DiscoveredMedia, MediaKind, MediaRepresentation } from '../../application/models.js';
+import type { DiscoveredMedia, MediaRepresentation } from '../../application/models.js';
 import { applicationError } from '../../shared/errors.js';
 
 const boundedText = z.string().min(1).max(2_048);
@@ -70,20 +70,17 @@ export function parseYtDlpMetadata(
     for (const entry of entries) {
       if (seenIds.has(entry.id)) throw applicationError('ProviderOutputInvalid', 'provider');
       seenIds.add(entry.id);
-      const explicitlyAnimated =
-        entry.media_type?.toLowerCase() === 'gif' || entry.ext?.toLowerCase() === 'gif';
       const representations = (entry.formats ?? [])
         .map((format, sourceIndex) => toRepresentation(format, sourceIndex))
         .filter(
           (representation): representation is MediaRepresentation => representation !== undefined,
         );
-      const kind: MediaKind =
-        explicitlyAnimated || representations.some(isDirectSilentAvcMp4) ? 'animation' : 'video';
       if (representations.length > 0) {
         supported.push({
           mediaId: entry.id,
           position: supported.length + 1,
-          kind,
+          kind: 'video',
+          audioPresence: 'unknown',
           representations,
         });
       }
@@ -118,6 +115,7 @@ function toRepresentation(
     url,
     container: format.ext,
     protocol: format.protocol,
+    audioEvidence: 'unknown',
     videoCodec,
     ...(audioCodec !== undefined ? { audioCodec } : {}),
     ...(format.width != null ? { width: format.width } : {}),
@@ -134,21 +132,6 @@ function inferTwitterVideoCodec(url: URL): string | undefined {
     return undefined;
   }
   return /(?:^|\/)vid\/avc1(?:\/|$)/i.test(url.pathname) ? 'avc1' : undefined;
-}
-
-function isDirectSilentAvcMp4(representation: MediaRepresentation): boolean {
-  const url = representation.url;
-  const videoCodec = representation.videoCodec?.trim().toLowerCase() ?? '';
-  return (
-    url.protocol === 'https:' &&
-    url.username === '' &&
-    url.password === '' &&
-    (url.port === '' || url.port === '443') &&
-    representation.container.toLowerCase() === 'mp4' &&
-    representation.protocol.toLowerCase() === 'https' &&
-    (videoCodec === 'h264' || videoCodec.startsWith('avc1') || videoCodec.startsWith('avc3')) &&
-    representation.audioCodec?.trim().toLowerCase() === 'none'
-  );
 }
 
 function isDomainError(error: unknown): error is { code: string; stage: string } {

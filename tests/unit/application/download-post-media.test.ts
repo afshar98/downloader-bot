@@ -83,14 +83,12 @@ describe('DownloadPostMedia', () => {
       discoveredMedia({ mediaId: 'one', position: 1 }),
       discoveredMedia({ mediaId: 'two', position: 2 }),
     ];
-    const { provider, downloader, delivery, deliver } = makeUseCase({ media: items });
+    const { provider, downloader, delivery, deliver, processor } = makeUseCase({ media: items });
     const workspaceFactory = new TemporaryWorkspaceFactory({ parentDirectory: parent });
     const appWithFactory = new DownloadPostMedia({
       provider,
       downloader,
-      processor: {
-        prepare: async (media) => preparedMedia({ media }),
-      },
+      processor,
       delivery,
       admission: new AdmissionControl({ maxActive: 1, maxQueued: 0 }),
       workspaceFactory,
@@ -113,6 +111,16 @@ describe('DownloadPostMedia', () => {
 
     expect(outcome).toMatchObject({ kind: 'complete', items: [{ position: 1 }, { position: 2 }] });
     expect(deliver.mock.calls.map((call) => call[1].downloaded.position)).toEqual([1, 2]);
+    expect(processor.prepare).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaId: 'one' }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({ root: expect.any(String) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        deadlineAt: expect.any(Number),
+        remainingMs: expect.any(Function),
+      }),
+    );
     expect(await readdir(parent)).toEqual([]);
   });
 
@@ -202,9 +210,10 @@ describe('DownloadPostMedia', () => {
       kind: 'failed',
       errorCode: 'ProviderOutputInvalid',
     });
-    await expect(
-      app.execute({ ...input, candidateUrl: 'https://example.org/' }),
-    ).resolves.toEqual({ kind: 'rejected', errorCode: 'UnsupportedPostUrl' });
+    await expect(app.execute({ ...input, candidateUrl: 'https://example.org/' })).resolves.toEqual({
+      kind: 'rejected',
+      errorCode: 'UnsupportedPostUrl',
+    });
     expect(acquire).toHaveBeenCalledTimes(1);
     expect(await readdir(parent)).toEqual([]);
   });

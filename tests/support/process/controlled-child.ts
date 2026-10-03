@@ -16,6 +16,7 @@ export function runControlledChild(
 ) {
   const runner = new ProcessRunner({ killGraceMs: 20 });
   return runner.run({
+    stage: 'provider',
     executable: process.execPath,
     args: [fixturePath, mode],
     timeoutMs: options.timeoutMs ?? 2_000,

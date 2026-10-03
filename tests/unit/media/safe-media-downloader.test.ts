@@ -35,7 +35,7 @@ describe('SafeMediaDownloader', () => {
     const downloader = new SafeMediaDownloader({ httpClient: http });
 
     const media = await downloader.download({
-      media: discoveredMedia(),
+      media: discoveredMedia({ audioPresence: 'unknown' }),
       representation: representation(),
       workspace,
       limits: { maxMediaBytes: 10, timeoutMs: 1_000, maxRedirects: 3 },
@@ -49,6 +49,7 @@ describe('SafeMediaDownloader', () => {
       sizeBytes: 5,
       container: 'mp4',
       path: join(workspace.root, 'item-0001.mp4'),
+      audioPresence: 'unknown',
     });
     expect(await readFile(media.path, 'utf8')).toBe('video');
     expect(await readdir(workspace.root)).toEqual(['item-0001.mp4']);

@@ -5,6 +5,7 @@ import type {
   DownloadLimits,
   MediaRepresentation,
   PreparedMedia,
+  ProcessingBudget,
   ProcessExecution,
   ProcessExecutionResult,
   SafeHttpDownload,
@@ -29,7 +30,12 @@ export interface MediaDownloader {
 }
 
 export interface MediaProcessor {
-  prepare(media: DownloadedMedia, context: OperationContext): Promise<PreparedMedia>;
+  prepare(
+    media: DownloadedMedia,
+    context: OperationContext,
+    workspace: TemporaryWorkspace,
+    budget: ProcessingBudget,
+  ): Promise<PreparedMedia>;
 }
 
 export type DeliveryReceipt = Readonly<{ itemPosition: number }>;

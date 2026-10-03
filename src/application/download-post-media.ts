@@ -241,7 +241,12 @@ export class DownloadPostMedia {
           } finally {
             downloadPermit?.release();
           }
-          const prepared = await this.options.processor.prepare(downloaded, context);
+          const prepared = await this.options.processor.prepare(
+            downloaded,
+            context,
+            workspace,
+            context,
+          );
           await this.options.delivery.deliver(destination, prepared, context);
           results.push(deliveredItem(media.position, media.mediaId));
           delivered = true;

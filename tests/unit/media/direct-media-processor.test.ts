@@ -10,18 +10,32 @@ describe('DirectMediaProcessor', () => {
     await expect(processor.prepare(media)).resolves.toEqual({
       downloaded: media,
       deliveryKind: 'video',
+      deliveryPath: media.path,
+      deliverySizeBytes: media.sizeBytes,
+      deliveryContainer: 'mp4',
       transformed: false,
     });
   });
 
-  it('preserves animation delivery metadata without conversion', async () => {
-    const media = downloadedMedia({ kind: 'animation' });
+  it('keeps an animation label with unknown audio on the video path', async () => {
+    const media = downloadedMedia({ kind: 'animation', audioPresence: 'unknown' });
     const processor = new DirectMediaProcessor({ maxMediaBytes: 10_000_000 });
 
     await expect(processor.prepare(media)).resolves.toMatchObject({
       downloaded: media,
-      deliveryKind: 'animation',
+      deliveryKind: 'video',
+      deliveryContainer: 'mp4',
       transformed: false,
+    });
+  });
+
+  it('does not report confirmed silent MP4 as a prepared animation before conversion exists', async () => {
+    const media = downloadedMedia({ audioPresence: 'absent' });
+    const processor = new DirectMediaProcessor({ maxMediaBytes: 10_000_000 });
+
+    await expect(processor.prepare(media)).rejects.toMatchObject({
+      code: 'MediaProcessingFailed',
+      stage: 'processing',
     });
   });
 

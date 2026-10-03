@@ -42,6 +42,7 @@ export class SafeMediaDownloader implements MediaDownloaderPort {
         mediaId: input.media.mediaId,
         position: input.media.position,
         kind: input.media.kind,
+        audioPresence: input.media.audioPresence,
         path: paths.mediaPath,
         sizeBytes,
         container: 'mp4',

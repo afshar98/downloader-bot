@@ -24,7 +24,7 @@ import { SafeMediaDownloader } from '../../src/media/safe-media-downloader.js';
 import { TelegramDelivery } from '../../src/bot/telegram-delivery.js';
 import { XMediaProvider } from '../../src/providers/x/x-media-provider.js';
 import { createRequestId } from '../../src/shared/identifiers.js';
-import { discoveredMedia } from '../support/builders.js';
+import { discoveredMedia, preparedMedia } from '../support/builders.js';
 
 const roots: string[] = [];
 const publicAddress = [{ address: '93.184.216.34', family: 4 as const }];
@@ -34,7 +34,7 @@ afterEach(async () => {
 });
 
 describe('US2 animation integration', () => {
-  it('sends compatible X animation as a Telegram animation', async () => {
+  it('keeps a GIF-labeled item with unknown audio on the MP4 video path', async () => {
     const parent = await mkdtemp(join(tmpdir(), 'us2-integration-'));
     roots.push(parent);
     const stdout = await readFile(new URL('../fixtures/x/animation.json', import.meta.url), 'utf8');
@@ -55,10 +55,7 @@ describe('US2 animation integration', () => {
     const sent: string[] = [];
     const delivery = new TelegramDelivery({
       api: {
-        sendVideo: async () => {
-          throw new Error('animation fixture must use sendAnimation');
-        },
-        sendAnimation: async (_destination, file) => {
+        sendVideo: async (_destination, file) => {
           const value = await file.toRaw();
           if (value instanceof Uint8Array) {
             sent.push(Buffer.from(value).toString('utf8'));
@@ -67,6 +64,9 @@ describe('US2 animation integration', () => {
           const chunks: Uint8Array[] = [];
           for await (const chunk of value) chunks.push(chunk);
           sent.push(Buffer.concat(chunks).toString('utf8'));
+        },
+        sendAnimation: async () => {
+          throw new Error('uncertain audio metadata must use sendVideo');
         },
       },
       timeoutMs: 5_000,
@@ -145,11 +145,7 @@ describe('US2 animation integration', () => {
       },
     };
     const processor: MediaProcessor = {
-      prepare: async (value) => ({
-        downloaded: value,
-        deliveryKind: value.kind,
-        transformed: false,
-      }),
+      prepare: async (value) => preparedMedia({ media: value }),
     };
     const api = {
       sendVideo: vi.fn(async () => undefined),

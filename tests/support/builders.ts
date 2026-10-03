@@ -1,12 +1,18 @@
 import type {
   DiscoveredMedia,
   DownloadedMedia,
-  MediaKind,
   MediaRepresentation,
   PreparedMedia,
 } from '../../src/application/models.js';
 
 export function representation(overrides: Partial<MediaRepresentation> = {}): MediaRepresentation {
+  const audioEvidence =
+    overrides.audioEvidence ??
+    (overrides.audioCodec?.trim().toLowerCase() === 'none'
+      ? 'absent'
+      : overrides.audioCodec
+        ? 'present'
+        : 'unknown');
   return {
     representationId: 'format-1',
     url: new URL('https://media.example.invalid/video.mp4'),
@@ -14,6 +20,7 @@ export function representation(overrides: Partial<MediaRepresentation> = {}): Me
     protocol: 'https',
     videoCodec: 'avc1.64001f',
     audioCodec: 'mp4a.40.2',
+    audioEvidence,
     width: 1280,
     height: 720,
     bitrate: 2_500,
@@ -28,7 +35,9 @@ export function discoveredMedia(overrides: Partial<DiscoveredMedia> = {}): Disco
   return {
     mediaId: 'media-1',
     position: 1,
-    kind: 'video',
+    kind: overrides.kind ?? 'video',
+    audioPresence:
+      overrides.audioPresence ?? (overrides.kind === 'animation' ? 'absent' : 'present'),
     representations: [representation()],
     ...overrides,
   };
@@ -38,7 +47,9 @@ export function downloadedMedia(overrides: Partial<DownloadedMedia> = {}): Downl
   return {
     mediaId: 'media-1',
     position: 1,
-    kind: 'video',
+    kind: overrides.kind ?? 'video',
+    audioPresence:
+      overrides.audioPresence ?? (overrides.kind === 'animation' ? 'absent' : 'present'),
     path: '/tmp/workspace/item-0001.mp4',
     sizeBytes: 8_000_000,
     container: 'mp4',
@@ -49,14 +60,31 @@ export function downloadedMedia(overrides: Partial<DownloadedMedia> = {}): Downl
 export function preparedMedia(
   overrides: {
     media?: DownloadedMedia;
-    deliveryKind?: MediaKind;
   } = {},
 ): PreparedMedia {
   const downloaded = overrides.media ?? downloadedMedia();
   return {
     downloaded,
-    deliveryKind: overrides.deliveryKind ?? downloaded.kind,
+    deliveryKind: 'video',
+    deliveryContainer: 'mp4',
+    deliveryPath: downloaded.path,
+    deliverySizeBytes: downloaded.sizeBytes,
     transformed: false,
+  };
+}
+
+export function preparedAnimationMedia(
+  overrides: { media?: DownloadedMedia; deliveryPath?: string; deliverySizeBytes?: number } = {},
+): PreparedMedia {
+  const downloaded =
+    overrides.media ?? downloadedMedia({ kind: 'animation', audioPresence: 'absent' });
+  return {
+    downloaded,
+    deliveryKind: 'animation',
+    deliveryContainer: 'gif',
+    deliveryPath: overrides.deliveryPath ?? '/tmp/workspace/item-0001.gif',
+    deliverySizeBytes: overrides.deliverySizeBytes ?? 90_000,
+    transformed: true,
   };
 }
 

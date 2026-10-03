@@ -37,7 +37,12 @@ describe('XMediaProvider animation mapping', () => {
     const media = await provider.resolve(parseXPostUrl('https://x.com/user/status/2'), context);
 
     expect(media).toHaveLength(1);
-    expect(media[0]).toMatchObject({ mediaId: 'animated-gif', kind: 'animation' });
+    expect(media[0]).toMatchObject({
+      mediaId: 'animated-gif',
+      kind: 'video',
+      audioPresence: 'unknown',
+    });
+    expect(media[0]?.representations[0]?.audioEvidence).toBe('unknown');
     expect(media[0]?.representations[0]?.representationId).toBe('animation-mp4');
     context.dispose();
   });

@@ -81,7 +81,21 @@ export class TemporaryWorkspaceFactory {
       }
       if (closed) throw new Error('Temporary workspace is closed');
       const basename = `item-${String(position).padStart(4, '0')}`;
-      return { partPath: join(root, `${basename}.part`), mediaPath: join(root, `${basename}.mp4`) };
+      return {
+        partPath: join(root, `${basename}.part`),
+        mediaPath: join(root, `${basename}.mp4`),
+        palettePartPath: join(root, `${basename}.palette.part`),
+        palettePath: join(root, `${basename}.palette.png`),
+        gifPartPath: join(root, `${basename}.gif.part`),
+        gifPath: join(root, `${basename}.gif`),
+      };
+    };
+    const removePath = async (path: string) => {
+      try {
+        await unlink(path);
+      } catch (error) {
+        if (!isMissingFileError(error)) throw error;
+      }
     };
     const workspace: ManagedTemporaryWorkspace = {
       root,
@@ -91,12 +105,26 @@ export class TemporaryWorkspaceFactory {
         const paths = itemPaths(position);
         await rename(paths.partPath, paths.mediaPath);
       },
-      removePartial: async (position) => {
-        try {
-          await unlink(itemPaths(position).partPath);
-        } catch (error) {
-          if (!isMissingFileError(error)) throw error;
-        }
+      finalizePalette: async (position) => {
+        const paths = itemPaths(position);
+        await rename(paths.palettePartPath, paths.palettePath);
+      },
+      finalizeGif: async (position) => {
+        const paths = itemPaths(position);
+        await rename(paths.gifPartPath, paths.gifPath);
+      },
+      removePartial: async (position) => removePath(itemPaths(position).partPath),
+      removeConversion: async (position) => {
+        const paths = itemPaths(position);
+        await Promise.all(
+          [paths.palettePartPath, paths.palettePath, paths.gifPartPath, paths.gifPath].map(
+            removePath,
+          ),
+        );
+      },
+      removeItem: async (position) => {
+        const paths = itemPaths(position);
+        await Promise.all(Object.values(paths).map(removePath));
       },
     };
     this.closeWorkspace.set(workspace, () => {
