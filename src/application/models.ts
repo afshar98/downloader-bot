@@ -131,6 +131,7 @@ export interface TemporaryWorkspace {
   finalizeItem(position: number): Promise<void>;
   finalizePalette(position: number): Promise<void>;
   finalizeGif(position: number): Promise<void>;
+  removePalette(position: number): Promise<void>;
   removePartial(position: number): Promise<void>;
   removeConversion(position: number): Promise<void>;
   removeItem(position: number): Promise<void>;

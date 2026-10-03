@@ -42,6 +42,7 @@ function makeApp(deliver: MediaDelivery['deliver'], signal: AbortSignal) {
     finalizeItem: vi.fn(),
     finalizePalette: vi.fn(),
     finalizeGif: vi.fn(),
+    removePalette: vi.fn(),
     removePartial: vi.fn(),
     removeConversion: vi.fn(),
     removeItem: vi.fn(),

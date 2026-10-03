@@ -121,6 +121,10 @@ export class TemporaryWorkspaceFactory {
         const paths = itemPaths(position);
         await rename(paths.gifPartPath, paths.gifPath);
       },
+      removePalette: async (position) => {
+        const paths = itemPaths(position);
+        await Promise.all([paths.palettePartPath, paths.palettePath].map(removePath));
+      },
       removePartial: async (position) => removePath(itemPaths(position).partPath),
       removeConversion: async (position) => {
         const paths = itemPaths(position);

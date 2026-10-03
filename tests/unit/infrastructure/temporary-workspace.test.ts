@@ -78,6 +78,22 @@ describe('TemporaryWorkspaceFactory', () => {
     await factory.cleanup(workspace);
   });
 
+  it('retires palette files after preserving a finalized GIF', async () => {
+    const parentDirectory = await createRoot();
+    const factory = new TemporaryWorkspaceFactory({ parentDirectory });
+    const workspace = await factory.create(createRequestId());
+    const paths = workspace.itemPaths(1);
+    await writeFile(paths.palettePartPath, 'palette');
+    await workspace.finalizePalette(1);
+    await writeFile(paths.gifPartPath, 'gif');
+    await workspace.finalizeGif(1);
+
+    await workspace.removePalette(1);
+    expect(await readdir(workspace.root)).toEqual(['item-0001.gif']);
+    await workspace.removeItem(1);
+    await factory.cleanup(workspace);
+  });
+
   it('rejects a symlinked parent before creating a workspace', async () => {
     const realParent = await createRoot();
     const link = join(realParent, 'link');

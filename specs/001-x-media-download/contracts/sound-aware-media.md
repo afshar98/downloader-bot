@@ -88,13 +88,15 @@ item-NNNN.palette.part / item-NNNN.palette.png
 item-NNNN.gif.part / item-NNNN.gif
 TemporaryWorkspace.finalizePalette(position) -> Promise<void>
 TemporaryWorkspace.finalizeGif(position) -> Promise<void>
+TemporaryWorkspace.removePalette(position) -> Promise<void>
 TemporaryWorkspace.removeConversion(position) -> Promise<void>
 TemporaryWorkspace.removeItem(position) -> Promise<void>
 ```
 
 All finalizations rename within the workspace after validation; no metadata filename becomes a
 path. Conversion/source files are exclusively created, non-symlink regular files, mode `0600`.
-`removeConversion` removes palette and GIF partial/final artifacts but retains source; `removeItem`
+`removePalette` retires palette partial/final files after a successful conversion while retaining the
+GIF; `removeConversion` removes palette and GIF partial/final artifacts but retains source; `removeItem`
 removes all six paths and is idempotent. Workspace factory cleanup remains recursive and authoritative.
 
 Application orchestration calls `removeItem` after every attempt, including before fallback or the
