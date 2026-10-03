@@ -155,7 +155,12 @@ description: "Implementation tasks for X/Twitter media download"
 
 ---
 
-## Dependencies & Execution Order
+## Historical Dependencies & Execution Order (T001–T072)
+
+The following guidance records the original completed MVP implementation only. It does not govern
+T092–T108. For current work, follow **Sound-Aware Completion Dependencies and Parallel Work** below:
+S0 precedes A/B/C/E; D depends on C; F follows A–E; G follows F. The original direct-MP4 animation
+behavior is superseded by confirmed-silent GIF conversion.
 
 ### Phase Dependencies
 
@@ -199,7 +204,12 @@ T032 Telegram delivery adapter tests
 T033 application workflow tests
 ```
 
-## Implementation Strategy
+## Historical Implementation Strategy (T001–T072)
+
+This section describes the original delivery sequence, not the current sound-aware completion.
+FFmpeg conversion is now an approved requirement; current execution and release criteria appear
+in **Sound-Aware Completion Dependencies and Parallel Work** and **Sound-Aware MVP and Independent
+Test Criteria** below.
 
 ### MVP First (US1 only)
 

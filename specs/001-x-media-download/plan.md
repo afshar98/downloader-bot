@@ -25,8 +25,10 @@ provider errors and yt-dlp version flags; workspace fallback removes source part
 source/output artifacts. These are the changes planned below. Existing T001–T091 remain historical
 completed capabilities, not proof of the revised feature. Do not rebuild their working boundaries.
 
-**Checkpoint scope**: Phase 0 research and Phase 1 design only; no production implementation or
-task checkbox changes. Next, refresh `tasks.md` through Spec Kit using the work packages below.
+**Checkpoint status**: Phase 0 research, Phase 1 design, and task generation are complete.
+Sound-aware completion tasks T092–T108 are recorded in [tasks.md](./tasks.md); production
+implementation remains pending. Follow its Sound-Aware Completion Dependencies and Parallel Work
+section: S0 first, A/B/C/E after S0, D after C, F after A–E, and G after F.
 
 ## Technical Context
 
@@ -433,7 +435,8 @@ At completion run existing `npm test`, `npm run lint`, `npm run typecheck`, `npm
 pre-existing repository formatting issues separately; do not weaken checks. Review all changes
 since this planning checkpoint for audio loss, unsafe arguments/references/paths, output validation,
 storage/termination leaks, timeout resets, and secret exposure. Preserve completed task history;
-append unchecked tasks for S0–G, then run Spec Kit analysis before implementation.
+T092–T108 already cover S0–G. Spec Kit analysis identified stale checkpoint and historical execution
+guidance, reconciled here and in `tasks.md`; follow the current completion dependencies before implementation.
 
 ## Complexity Tracking
 
