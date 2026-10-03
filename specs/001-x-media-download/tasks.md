@@ -248,3 +248,84 @@ T033 application workflow tests
 - [X] T089 Replace SC-005 synthetic resource counters with controlled HTTP response and child-process doubles whose close/termination calls are observed per SC-005 and T082 (partial)
 - [X] T090 Reconcile the `MediaProvider` contract location with the plan's `src/providers/media-provider.ts` architecture touchpoint per T037 and plan: Source Code structure (partial)
 - [X] T091 Add `YT_DLP_EXPECTED_VERSION` and its startup comparison behavior to the plan's configuration contract per plan: Configuration and Operations (partial)
+
+---
+
+## Phase 11: Sound-Aware Completion — Shared Contracts
+
+**Purpose**: Freeze and migrate shared types and seams before parallel owners begin. This is a continuation of the completed feature, not a replacement for T001–T091.
+
+- [ ] T092 Define sound-aware model, processor, process, workspace, and processing-budget contract tests in `tests/unit/application/download-post-media.test.ts`, `tests/unit/media/direct-media-processor.test.ts`, `tests/unit/infrastructure/process-runner.test.ts`, and `tests/unit/infrastructure/temporary-workspace.test.ts`
+- [ ] T093 Migrate shared models/ports, builders, existing consumers, downloader state-copy, and interim video-only direct processor behavior to `src/application/models.ts`, `src/application/ports.ts`, `tests/support/builders.ts`, `src/media/safe-media-downloader.ts`, `src/media/direct-media-processor.ts`, and affected tests; make the T092 contract tests pass and run typecheck/build
+
+**Commit checkpoint S0**: Commit the frozen contracts and mechanical migrations together after focused tests, typecheck, and build pass. Do not split owners before this checkpoint.
+
+---
+
+## Phase 12: User Story 1 — Preserve Audio-Bearing Video (Priority: P1)
+
+**Goal**: Classify explicit audio evidence and ensure confirmed audio always selects an audio-bearing MP4 delivered as video; unknown or contradictory evidence remains video.
+
+**Independent Test**: Provider and selector fixtures exercise every frozen evidence aggregation case and prove silent/unknown alternatives cannot displace confirmed audio, while uncertain items retain existing compatible-video ranking.
+
+- [ ] T094 [P] [US1] Add provider and selector tests for normalized `acodec`/`audio_ext`, conflicting evidence retention, usable-format aggregation precedence, and audio-safe candidate filtering/fallback in `tests/unit/providers/x/yt-dlp-schema-direct-formats.test.ts`, `tests/unit/media/representation-selector.test.ts`, and `tests/unit/media/animation-delivery.test.ts`
+- [ ] T095 [US1] Implement explicit evidence normalization, item audio-state aggregation, and audio-preserving representation selection with the T094 tests in `src/providers/x/yt-dlp-schema.ts`, `src/media/representation-selector.ts`, and focused X audio fixtures under `tests/fixtures/x/`
+
+**Commit checkpoint A**: Group T094–T095 as the audio classification and safe selection capability.
+
+---
+
+## Phase 13: User Story 2 — Convert Confirmed Silent Video to GIF (Priority: P2)
+
+**Goal**: Convert only confirmed-silent eligible MP4 sources into real validated GIFs under pinned, bounded local FFmpeg execution; preserve video delivery for all other audio states.
+
+**Independent Test**: Synthetic local media proves confirmed-silent input yields a structurally valid, fully decodable GIF; audio-bearing, unknown, and conflicting inputs yield MP4/video artifacts and never enter conversion.
+
+- [ ] T096 [P] [US2] Add FFmpeg configuration parsing and approved-version verification tests for required settings, exact first-line token match, malformed/missing output, bounded diagnostics, and startup-safe failure in `tests/unit/config/load-config.test.ts` and new `tests/unit/config/verify-ffmpeg-version.test.ts`
+- [ ] T097 [US2] Add FFmpeg path/version configuration and a focused `-version` verifier, with T096 coverage, in `src/config/load-config.ts`, new `src/config/verify-ffmpeg-version.ts`, and `.env.example`
+- [ ] T098 [P] [US2] Extend process/workspace tests for provider-versus-processing error mapping, bounded binary stdout sink and overflow, observed child/sink closure, fatal-resource notification, generated palette/GIF paths, finalization, retirement, and cleanup retries in `tests/unit/infrastructure/process-runner.test.ts`, `tests/integration/process-runner.integration.test.ts`, and `tests/unit/infrastructure/temporary-workspace.test.ts`
+- [ ] T099 [US2] Implement stage-aware binary process output, closure/drain behavior, fatal-resource callback, and generated conversion artifact lifecycle with T098 coverage in `src/infrastructure/process-runner.ts` and `src/infrastructure/temporary-workspace.ts`
+- [ ] T100 [US2] Add converter and validator unit tests for fixed two-pass local-only arguments, shared deadline/cancellation, output caps, malformed/truncated GIF structures, full decode failure, and conversion cleanup in new `tests/unit/media/gif-media-processor.test.ts`, `tests/unit/media/gif-validator.test.ts`, and `tests/support/ffmpeg/`
+- [ ] T101 [US2] Implement confirmed-silent-only palette/GIF conversion and structural plus full-decode validation with T100 coverage in new `src/media/gif-media-processor.ts` and `src/media/gif-validator.ts`; add bounded synthetic media fixtures under `tests/fixtures/media/`
+- [ ] T102 [P] [US2] Extend delivery tests for prepared artifact paths, GIF-to-`sendAnimation`, MP4-to-`sendVideo`, signal propagation, and existing destination/error behavior in `tests/unit/bot/telegram-delivery.test.ts` and `tests/unit/bot/telegram-delivery-destination.test.ts`
+- [ ] T103 [US2] Deliver the prepared artifact's actual path through the existing Telegram method switch with T102 coverage in `src/bot/telegram-delivery.ts`
+
+**Commit checkpoints B–E**: Group T096–T097 (FFmpeg configuration), T098–T099 (process/workspace boundary), T100–T101 (GIF conversion and validation), and T102–T103 (prepared-artifact delivery) into four coherent commits. B, C, and E may proceed independently after S0; D waits for C and may overlap B/E.
+
+---
+
+## Phase 14: Sound-Aware Integration and Completion
+
+**Purpose**: Wire the independently completed capabilities, prove request lifecycle and user-visible delivery, document operations, and run the full feature gates.
+
+- [ ] T104 [US1] Add application and lifecycle tests for one shared item-processing deadline across conversion/fallback, budget expiry before delivery/acquisition, per-attempt artifact cleanup, fatal resource shutdown, later-item continuation, and cancellation in `tests/unit/application/download-post-media.test.ts`, `tests/integration/shutdown-lifecycle.test.ts`, and `tests/integration/us4-failure-lifecycle.test.ts`
+- [ ] T105 [US1] Wire processing budget, converter selection, cleanup/fallback rules, fatal-resource shutdown, and both yt-dlp/FFmpeg startup checks with T104 coverage in `src/application/download-post-media.ts` and `src/index.ts`; update safe processing-failure copy and focused tests in `src/bot/telegram-bot.ts` and `tests/unit/bot/telegram-bot-validation.test.ts`
+- [ ] T106 [US1] Add controlled synthetic MP4-to-GIF integration and sound-aware acceptance coverage for audio/silent/unknown/contradictory routing, output path/bytes, caps, timing, cleanup, and no live network in `tests/integration/us1-download-video.test.ts`, `tests/integration/us2-download-animation.test.ts`, `tests/integration/ffmpeg/`, and `tests/acceptance/`; add explicit `test:ffmpeg` invocation in `package.json`, `vitest.config.ts`, and new `vitest.ffmpeg.config.ts`, and document binary pinning/resource use in `README.md`, `docs/media-processing.md`, `docs/security.md`, and `specs/001-x-media-download/quickstart.md`
+- [ ] T107 [US1] Run and reconcile `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run format:check`, and the explicit controlled FFmpeg lane; review requirement/contract/task consistency and remediate defects in their owning capability before final review
+- [ ] T108 Perform final feature review of audio-loss paths, untrusted FFmpeg arguments/references, output validation, deadline resets, child/workspace cleanup, startup gating, secret exposure, and intended working-tree changes; record any remaining blocking work in `specs/001-x-media-download/tasks.md`
+
+**Commit checkpoint F**: Group T104–T106 with their direct tests/docs after A–E are complete. T107–T108 are feature-level verification and review; commit only concrete remediation with its owning capability, not a completion-only commit.
+
+---
+
+## Sound-Aware Completion Dependencies and Parallel Work
+
+- T092–T093 (S0) are serial and block all parallel implementation because they freeze the shared contracts and migrate existing consumers.
+- After S0, A (T094–T095), B (T096–T097), C (T098–T099), and E (T102–T103) own disjoint files and can proceed in parallel. T094 and B/C/E test work can also be prepared independently after the shared contract freeze.
+- D (T100–T101) depends on C's binary sink and workspace lifecycle contracts; it may overlap incomplete A, B, and E work.
+- F (T104–T106) depends on A–E and is the serial integration barrier. G (T107–T108) follows F.
+- Commit checkpoints are S0, A, B, C, D, E, and F as described above; Spec Kit tasks are grouped by capability, not committed one by one.
+
+### Parallel Examples
+
+After S0, separate owners may work on A, B, C, and E concurrently because their file ownership is exclusive. Once C passes its focused tests, D may begin while A, B, and E finish. No lane edits `src/index.ts` or application orchestration before F.
+
+## Sound-Aware MVP and Independent Test Criteria
+
+- **US1 MVP**: Complete S0 and A, then prove audio-bearing MP4 selection and `sendVideo`; unknown/conflicting evidence must remain on the video path.
+- **US2 completion**: Complete B–E and F, then prove confirmed-silent local MP4 conversion to a real decoded GIF and `sendAnimation`, with finite bounds and cleanup.
+- US1 and US2 are not independently releasable until F wires the contracts and capabilities into the existing request flow. Existing US3/US4 completed history remains represented by T001–T091.
+
+## Task Format Validation
+
+New tasks continue IDs from T092, retain checkbox/ID format, include user-story labels for story work, mark only independent work `[P]`, and name the implementation and directly related test paths in each capability task. Completed historical tasks T001–T091 are preserved unchanged.
