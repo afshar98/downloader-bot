@@ -24,7 +24,7 @@ export class TelegramDelivery implements MediaDelivery {
   ): Promise<DeliveryReceipt> {
     const stage = context.createStageSignal('delivery', this.options.timeoutMs);
     try {
-      const file = new InputFile(media.downloaded.path);
+      const file = new InputFile(media.deliveryPath);
       if (media.deliveryKind === 'animation') {
         await this.options.api.sendAnimation(destination, file, stage.signal);
       } else {

@@ -36,6 +36,10 @@ describe('TelegramDelivery', () => {
       expect.any(InputFile),
       expect.any(AbortSignal),
     );
+    const videoFile = vi.mocked(api.sendVideo).mock.calls[0]?.[1];
+    const animationFile = vi.mocked(api.sendAnimation).mock.calls[0]?.[1];
+    expect(videoFile?.filename).toBe('item-0001.mp4');
+    expect(animationFile?.filename).toBe('item-0001.gif');
     operation.dispose();
   });
 

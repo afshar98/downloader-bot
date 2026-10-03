@@ -297,8 +297,8 @@ Test Criteria** below.
 - [X] T099 [US2] Implement stage-aware binary process output, closure/drain behavior, fatal-resource callback, and generated conversion artifact lifecycle with T098 coverage in `src/infrastructure/process-runner.ts` and `src/infrastructure/temporary-workspace.ts`
 - [ ] T100 [US2] Add converter and validator unit tests for fixed two-pass local-only arguments, shared deadline/cancellation, output caps, malformed/truncated GIF structures, full decode failure, and conversion cleanup in new `tests/unit/media/gif-media-processor.test.ts`, `tests/unit/media/gif-validator.test.ts`, and `tests/support/ffmpeg/`
 - [ ] T101 [US2] Implement confirmed-silent-only palette/GIF conversion and structural plus full-decode validation with T100 coverage in new `src/media/gif-media-processor.ts` and `src/media/gif-validator.ts`; add bounded synthetic media fixtures under `tests/fixtures/media/`
-- [ ] T102 [P] [US2] Extend delivery tests for prepared artifact paths, GIF-to-`sendAnimation`, MP4-to-`sendVideo`, signal propagation, and existing destination/error behavior in `tests/unit/bot/telegram-delivery.test.ts` and `tests/unit/bot/telegram-delivery-destination.test.ts`
-- [ ] T103 [US2] Deliver the prepared artifact's actual path through the existing Telegram method switch with T102 coverage in `src/bot/telegram-delivery.ts`
+- [X] T102 [P] [US2] Extend delivery tests for prepared artifact paths, GIF-to-`sendAnimation`, MP4-to-`sendVideo`, signal propagation, and existing destination/error behavior in `tests/unit/bot/telegram-delivery.test.ts` and `tests/unit/bot/telegram-delivery-destination.test.ts`
+- [X] T103 [US2] Deliver the prepared artifact's actual path through the existing Telegram method switch with T102 coverage in `src/bot/telegram-delivery.ts`
 
 **Commit checkpoints B–E**: Group T096–T097 (FFmpeg configuration), T098–T099 (process/workspace boundary), T100–T101 (GIF conversion and validation), and T102–T103 (prepared-artifact delivery) into four coherent commits. B, C, and E may proceed independently after S0; D waits for C and may overlap B/E.
 
