@@ -10,6 +10,11 @@ export type AppErrorCode =
   | 'delivery-failed'
   | 'timed-out'
   | 'cancelled'
+  | 'output-limit-exceeded'
+  | 'process-failed'
+  | 'download-failed'
+  | 'media-too-large'
+  | 'unsafe-media-url'
   | 'internal-error';
 
 export class AppError extends Error {

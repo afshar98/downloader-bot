@@ -1,0 +1,28 @@
+{
+  "id": "123456789",
+  "title": "Example animation",
+  "formats": [
+    {
+      "url": "https://video.twimg.com/ext_tw_video/1/pu/vid/360x360/low.mp4?tag=1",
+      "ext": "mp4",
+      "protocol": "https",
+      "vcodec": "avc1.4d401f",
+      "acodec": "none",
+      "width": 360,
+      "height": 360,
+      "tbr": 400,
+      "filesize": 300000
+    },
+    {
+      "url": "https://video.twimg.com/ext_tw_video/1/pu/vid/720x720/high.mp4?tag=1",
+      "ext": "mp4",
+      "protocol": "https",
+      "vcodec": "avc1.4d401f",
+      "acodec": "none",
+      "width": 720,
+      "height": 720,
+      "tbr": 1400,
+      "filesize": 900000
+    }
+  ]
+}
