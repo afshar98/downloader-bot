@@ -41,7 +41,7 @@
 - Test: `tests/config.test.ts`, `tests/application.test.ts`
 
 **Interfaces:**
-- Produces: `Config` with `telegramToken`, `ytDlpPath`, `ytDlpExpectedVersion`, `ffmpegPath`, `ffmpegExpectedVersion`, `maxMediaBytes`, `maxGifBytes`, `maxConcurrentJobs`, and `jobTimeoutMs`; `loadConfig(env: NodeJS.ProcessEnv): Config`; `AppError` with stable safe codes; domain result/media types; and an injectable `createApplication(dependencies): { handleRequest(input, signal): Promise<RequestResult> }` contract.
+- Produces: `Config` with `telegramToken`, `ytDlpPath`, `ytDlpExpectedVersion`, `ffmpegPath`, `ffmpegExpectedVersion`, `maxMediaBytes`, `maxGifBytes`, `maxConcurrentJobs`, and `jobTimeoutMs`; `loadConfig(env: NodeJS.ProcessEnv): Config`; `AppError` with stable safe codes; domain result/media types; `RequestInput = { canonicalUrl: string; chatId: string }`; and an injectable `createApplication(dependencies): { handleRequest(input: RequestInput, signal: AbortSignal): Promise<RequestResult> }` contract.
 - `RequestResult` is one of `delivered`, `invalid-url`, `unsupported-url`, `inaccessible`, `no-animation`, `failed`, or `cancelled`.
 
 - [ ] **Step 1: Write failing configuration and application contract tests**
@@ -106,14 +106,14 @@ Expected: all pass. Commit as `feat(bot): accept validated X status links`.
 ### Task 3: Extract animated media with a bounded local provider
 
 **Files:**
-- Create: `src/process-runner.ts`, `src/x-media-provider.ts`, `src/media-downloader.ts`
+- Create: `src/process-runner.ts`, `src/x-media-provider.ts`, `src/media-downloader.ts`, `src/temporary-workspace.ts`
 - Modify: `src/config.ts`, `src/application.ts`, `src/errors.ts`
 - Test: `tests/process-runner.test.ts`, `tests/x-media-provider.test.ts`, `tests/media-downloader.test.ts`
 - Fixtures: `tests/fixtures/x-animation.json`, `tests/fixtures/x-no-animation.json`, `tests/fixtures/x-invalid.json`
 
 **Interfaces:**
 - Consumes: Task 1 `Config`/`AppError`; Task 2 canonical X status URL.
-- Produces: `ProcessRunner.run({ executable, args, cwd, signal, timeoutMs, maxStdoutBytes, maxStderrBytes }): Promise<{ exitCode: number; stdout: string; stderr: string }>`; `XMediaProvider.getAnimation(statusUrl, workspace, signal): Promise<SourceMedia>`; `MediaDownloader.download(source, destination, signal): Promise<{ path: string; sizeBytes: number }>`.
+- Produces: `ProcessRunner.run({ executable, args, cwd, signal, timeoutMs, maxStdoutBytes, maxStderrBytes }): Promise<{ exitCode: number; stdout: string; stderr: string }>`; `XMediaProvider.getAnimation(statusUrl, signal): Promise<SourceMedia>`; `MediaDownloader.download(source, destination, signal): Promise<{ path: string; sizeBytes: number }>`; `createTemporaryWorkspace(): Promise<RequestWorkspace>`, where `RequestWorkspace` exposes `rootPath`, `sourcePath`, `partialGifPath`, `gifPath`, and async idempotent `dispose()`.
 - `SourceMedia` contains only a validated progressive source URL, expected container, and safe display metadata; it has no Telegram delivery kind.
 
 - [ ] **Step 1: Write failing process-runner tests**
@@ -154,7 +154,7 @@ Expected: all pass. Commit as `feat(x-provider): extract animated media safely`.
 - Fixtures: `tests/fixtures/media/valid.gif`, `tests/fixtures/media/not-gif.mp4`, `tests/fixtures/media/empty.gif`
 
 **Interfaces:**
-- Consumes: Task 3 `SourceMedia`, downloaded source path, `ProcessRunner`, and request workspace.
+- Consumes: Task 3 `SourceMedia`, downloaded source path, `ProcessRunner`, and `RequestWorkspace`.
 - Produces: `GifConverter.convert(sourcePath, gifPath, signal): Promise<{ path: string; sizeBytes: number }>` and `GifValidator.validate(path): Promise<{ width: number; height: number; frameCount: number }>`.
 - A validated artifact is represented as `GifMedia`; only this type can be passed to Task 5 delivery.
 
@@ -187,7 +187,7 @@ Expected: all pass. Commit as `feat(media): convert animated sources to verified
 - Test: `tests/telegram-delivery.test.ts`, `tests/lifecycle.test.ts`, `tests/application.integration.test.ts`
 
 **Interfaces:**
-- Consumes: Task 2 bot factory; Task 3 extractor/downloader/workspace; Task 4 `GifMedia`.
+- Consumes: Task 2 bot factory; Task 3 `XMediaProvider`, `MediaDownloader`, and `RequestWorkspace`; Task 4 converter/validator and `GifMedia`.
 - Produces: `GifDelivery.sendAnimation(chatId: string, media: GifMedia, signal: AbortSignal): Promise<void>`; tool checks that compare each configured executable's reported version token to its expected value; startup/shutdown entry points that validate configured tools before polling and stop polling, abort active work, await cleanup, then exit.
 
 - [ ] **Step 1: Write failing delivery tests**

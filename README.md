@@ -1,18 +1,13 @@
-# X Media Downloader Bot
+# X GIF Telegram Bot
 
-A Telegram bot that accepts one public X/Twitter status URL and sends supported video or animated
-media back to the originating chat. The implementation follows the feature design in
-[`specs/001-x-media-download`](specs/001-x-media-download/).
+A small Telegram bot that accepts one public X post link, converts its animation to a real GIF, and
+sends only that GIF to the same chat. It never sends a video file.
 
-## Prerequisites
+## Requirements
 
 - Node.js 24 and npm
-- A compatible, deployment-pinned `yt-dlp` executable available as `yt-dlp` or at `YT_DLP_PATH`
-- A deployment-pinned FFmpeg executable at `FFMPEG_PATH`, with its approved version token in `FFMPEG_EXPECTED_VERSION`
-- A Telegram bot token for local long-polling
-
-No database, Redis, webhook endpoint, or X credentials are required. The bot uses long polling and
-local temporary workspaces. Keep the actual Telegram token in `.env`; do not commit or print it.
+- A Telegram bot token
+- Locally installed, deployment-pinned `yt-dlp` and FFmpeg executables
 
 ## Setup
 
@@ -21,39 +16,26 @@ npm ci
 cp .env.example .env
 ```
 
-Set `TELEGRAM_BOT_TOKEN` and the approved exact `YT_DLP_EXPECTED_VERSION` in `.env`.
-`YT_DLP_PATH` may point to the approved local executable. Startup compares its reported version
-with the approved value before beginning polling. Set `FFMPEG_PATH` and
-`FFMPEG_EXPECTED_VERSION` to the trusted local FFmpeg binary and approved version token; startup
-checks it before polling as well. See [`docs/media-processing.md`](docs/media-processing.md) for
-the conversion profile and controlled integration lane.
+Set `TELEGRAM_BOT_TOKEN`, executable paths, and their expected version tokens in `.env`. The bot
+checks both tool versions before polling. Do not commit the real `.env` file.
 
-## Development and verification
+Run locally with `npm run dev`; build with `npm run build` and run with `npm start`.
+
+The default source limit is 20 MiB, GIF limit is 15 MiB, concurrency is two requests, and the
+request deadline is three minutes. These values can be reduced with the environment settings shown
+in `.env.example`.
+
+Every result sent as media is a converted and validated animated GIF uploaded through Telegram's
+animation API. Invalid links, unavailable posts, unsupported posts, and processing failures receive
+a short text reply instead.
+
+## Checks
 
 ```bash
-npm run dev
+npm test
 npm run lint
 npm run typecheck
-npm test
 npm run build
 ```
 
-The normal test suite uses checked-in provider fixtures and controlled ports. It does not call X or
-Telegram and does not require live media tools. The real-binary conversion check is a separate lane:
-
-```bash
-FFMPEG_PATH=/trusted/bin/ffmpeg FFMPEG_EXPECTED_VERSION=approved-token npm run test:ffmpeg
-```
-
-See [`specs/001-x-media-download/quickstart.md`](specs/001-x-media-download/quickstart.md) for the
-deterministic scenarios and opt-in live smoke test guidance. Normal commands need no network access;
-`npm ci` needs registry access when dependencies are not cached.
-
-## Operational notes
-
-Pin and review the deployed `yt-dlp` artifact deliberately, including its provenance, integrity
-record where available, and applicable license notices. Runtime plugins, remote components, and
-self-update are disabled. Configure deployment egress to block private and internal destinations
-as defense in depth. See [`docs/yt-dlp.md`](docs/yt-dlp.md) for artifact maintenance and
-[`docs/security.md`](docs/security.md) for resource caps, temporary storage ownership, and log
-redaction. No raw message text, token, full media URL, process output, or local path belongs in logs.
+The automated suite uses local fixtures and injected boundaries; it does not contact X or Telegram.
