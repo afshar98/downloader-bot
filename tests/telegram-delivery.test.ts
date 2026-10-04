@@ -14,17 +14,21 @@ const media: GifMedia = {
 
 describe('GifDelivery', () => {
   it('uploads only the verified GIF artifact as an animation', async () => {
-    const sendAnimation = vi.fn(async (_chatId: string, _animation: InputFile) => undefined);
+    const sendAnimation = vi.fn(
+      async (_chatId: string, _animation: InputFile, _signal: AbortSignal) => undefined,
+    );
     const telegram = { sendAnimation };
     const delivery = new GifDelivery(telegram);
+    const signal = new AbortController().signal;
 
-    await delivery.sendAnimation('chat-1', media, new AbortController().signal);
+    await delivery.sendAnimation('chat-1', media, signal);
 
     expect(sendAnimation).toHaveBeenCalledOnce();
     expect(sendAnimation.mock.calls[0]?.[0]).toBe('chat-1');
     const uploaded = sendAnimation.mock.calls[0]?.[1];
     expect(uploaded).toBeInstanceOf(InputFile);
     expect(uploaded?.filename).toBe('verified.gif');
+    expect(sendAnimation.mock.calls[0]?.[2]).toBe(signal);
     expect(telegram).not.toHaveProperty('sendVideo');
   });
 

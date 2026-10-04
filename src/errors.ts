@@ -12,8 +12,9 @@ export type AppErrorCode =
   | 'cancelled'
   | 'output-limit-exceeded'
   | 'process-failed'
-  | 'download-failed'
   | 'media-too-large'
+  | 'busy'
+  | 'tool-check-failed'
   | 'unsafe-media-url'
   | 'internal-error';
 

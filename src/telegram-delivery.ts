@@ -3,7 +3,7 @@ import { AppError } from './errors.js';
 import type { GifMedia } from './gif-converter.js';
 
 export type AnimationApi = Readonly<{
-  sendAnimation(chatId: string, animation: InputFile): Promise<unknown>;
+  sendAnimation(chatId: string, animation: InputFile, signal: AbortSignal): Promise<unknown>;
 }>;
 
 export class GifDelivery {
@@ -20,7 +20,7 @@ export class GifDelivery {
       throw new AppError('invalid-gif');
     }
     try {
-      await this.api.sendAnimation(chatId, new InputFile(media.path));
+      await this.api.sendAnimation(chatId, new InputFile(media.path), signal);
     } catch (cause) {
       if (signal.aborted) throw new AppError('cancelled', 'Delivery cancelled', { cause });
       throw new AppError('delivery-failed', 'Telegram animation upload failed', { cause });

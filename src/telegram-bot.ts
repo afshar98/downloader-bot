@@ -58,6 +58,11 @@ export function createIncomingTextHandler(dependencies: IncomingTextHandlerDepen
 }
 
 export function registerTelegramHandlers(bot: Bot, application: Application): Bot {
+  bot.command(['start', 'help'], async (context) => {
+    await context.reply(
+      'لینک یک پست X دارای GIF یا محتوای متحرک را بفرست تا فایل GIF آن را دریافت کنی.',
+    );
+  });
   bot.on('message:text', async (context) => {
     const handler = createIncomingTextHandler({
       application,
@@ -71,7 +76,9 @@ export function registerTelegramHandlers(bot: Bot, application: Application): Bo
 }
 
 export function extractUrlCandidates(text: string): string[] {
-  return [...text.matchAll(URL_TOKEN)].map(([match]) => match?.replace(TRAILING_PUNCTUATION, '') ?? '');
+  return [...text.matchAll(URL_TOKEN)].map(
+    ([match]) => match?.replace(TRAILING_PUNCTUATION, '') ?? '',
+  );
 }
 
 function errorReply(error: unknown): string {
