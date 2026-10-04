@@ -42,3 +42,5 @@ npm run build
 ```
 
 The automated suite uses local fixtures and injected boundaries; it does not contact X or Telegram.
+Run `npm run test:ffmpeg` to exercise the conversion and full GIF decode against the configured local
+FFmpeg executable.

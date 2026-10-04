@@ -20,5 +20,11 @@
     "paths": { "@/*": ["./src/*"] },
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "eslint.config.mjs"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "vitest.ffmpeg.config.ts",
+    "eslint.config.mjs"
+  ]
 }

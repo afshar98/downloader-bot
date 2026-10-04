@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:ffmpeg": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --config vitest.ffmpeg.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
