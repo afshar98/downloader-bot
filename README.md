@@ -26,7 +26,9 @@ Run locally with `npm run dev`; build with `npm run build` and run with `npm sta
 The default source limit is 20 MiB, GIF limit is 15 MiB, concurrency is two requests, and the
 request deadline is three minutes. These values can be reduced with the environment settings shown
 in `.env.example`.
-GIF conversion uses a fixed 15 fps profile and limits each dimension to 640 pixels.
+GIF conversion starts at 15 fps and limits each dimension to 640 pixels. If the output exceeds the
+configured GIF size cap, it retries at 10 fps, then 8 fps/480 pixels, then 6 fps/360 pixels. It sends
+only a complete, validated GIF that fits the cap.
 
 Every result sent as media is a converted and validated animated GIF uploaded through Telegram's
 animation API. Invalid links, unavailable posts, unsupported posts, and processing failures receive

@@ -104,6 +104,38 @@ describe('GifConverter', () => {
     }
   });
 
+  it('retries an oversized GIF with a smaller complete profile', async () => {
+    const paths = await workspace();
+    const bytes = await readFile(VALID_GIF);
+    let attempt = 0;
+    const run = vi.fn<RunnerImplementation>(async ({ args }) => {
+      attempt++;
+      await writeFile(args.at(-1) ?? '', attempt === 1 ? Buffer.alloc(8192, 7) : bytes);
+      return { exitCode: 0, stdout: '', stderr: '' };
+    });
+    const gifValidator = validator();
+    const converter = new GifConverter({
+      executable: '/usr/bin/ffmpeg',
+      maxSourceBytes: 1024 * 1024,
+      maxGifBytes: 4096,
+      runner: { run } as ProcessRunner,
+      validator: gifValidator,
+    });
+
+    try {
+      await expect(
+        converter.convert(paths.sourcePath, paths.partialPath, paths.gifPath, new AbortController().signal),
+      ).resolves.toMatchObject({ container: 'gif', frameCount: 5 });
+      expect(run).toHaveBeenCalledTimes(2);
+      expect(run.mock.calls[0]?.[0].args.join(' ')).toContain('fps=15');
+      expect(run.mock.calls[1]?.[0].args.join(' ')).toContain('fps=10');
+      expect(gifValidator.validate).toHaveBeenCalledTimes(1);
+      await expect(readFile(paths.gifPath)).resolves.toEqual(bytes);
+    } finally {
+      await rm(paths.root, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     ['non-zero exit', async () => ({ exitCode: 1, stdout: '', stderr: 'private ffmpeg output' })],
     ['missing output', async () => ({ exitCode: 0, stdout: '', stderr: '' })],
