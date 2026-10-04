@@ -4,6 +4,8 @@ import { AppError } from './errors.js';
 import { GifValidator } from './gif-validator.js';
 import { ProcessRunner } from './process-runner.js';
 
+const VERIFIED_GIF: unique symbol = Symbol('verifiedGif');
+
 export type GifMedia = Readonly<{
   path: string;
   sizeBytes: number;
@@ -11,6 +13,7 @@ export type GifMedia = Readonly<{
   height: number;
   frameCount: number;
   container: 'gif';
+  readonly [VERIFIED_GIF]: true;
 }>;
 type GifConverterOptions = Readonly<{
   executable: string;
@@ -105,7 +108,7 @@ export class GifConverter {
       const verifiedFile = await stat(partialPath);
       if (verifiedFile.size > this.options.maxGifBytes) throw new AppError('media-too-large');
       await rename(partialPath, gifPath);
-      return {
+      const media = {
         path: gifPath,
         sizeBytes: verifiedFile.size,
         width: validation.width,
@@ -113,10 +116,32 @@ export class GifConverter {
         frameCount: validation.frameCount,
         container: 'gif',
       };
+      Object.defineProperty(media, VERIFIED_GIF, { value: true });
+      return Object.freeze(media) as GifMedia;
     } catch (error) {
       await rm(partialPath, { force: true }).catch(() => undefined);
       if (error instanceof AppError) throw error;
       throw new AppError('conversion-failed', 'GIF conversion failed', { cause: error });
     }
   }
+}
+
+export function isVerifiedGifMedia(value: unknown): value is GifMedia {
+  if (typeof value !== 'object' || value === null || !Object.isFrozen(value)) return false;
+  const candidate = value as Record<PropertyKey, unknown>;
+  return (
+    candidate[VERIFIED_GIF] === true &&
+    typeof candidate['path'] === 'string' &&
+    candidate['path'].toLowerCase().endsWith('.gif') &&
+    typeof candidate['sizeBytes'] === 'number' &&
+    Number.isSafeInteger(candidate['sizeBytes']) &&
+    candidate['sizeBytes'] > 0 &&
+    typeof candidate['width'] === 'number' &&
+    candidate['width'] > 0 &&
+    typeof candidate['height'] === 'number' &&
+    candidate['height'] > 0 &&
+    typeof candidate['frameCount'] === 'number' &&
+    candidate['frameCount'] >= 2 &&
+    candidate['container'] === 'gif'
+  );
 }

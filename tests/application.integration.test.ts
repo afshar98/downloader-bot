@@ -5,14 +5,14 @@ import { AppError } from '../src/errors.js';
 import type { GifMedia } from '../src/gif-converter.js';
 import type { SourceMedia } from '../src/x-media-provider.js';
 
-const gif: GifMedia = {
+const gif = {
   path: '/private/request/animation.gif',
   sizeBytes: 256,
   width: 32,
   height: 32,
   frameCount: 5,
   container: 'gif',
-};
+} as unknown as GifMedia;
 const source: SourceMedia = {
   url: 'https://video.twimg.com/ext_tw_video/123/pu/vid/avc1/clip.mp4',
   container: 'mp4',
