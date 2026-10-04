@@ -74,13 +74,41 @@ describe('XMediaProvider', () => {
         'https://x.com/name/status/123456789',
         new AbortController().signal,
       ),
-    ).rejects.toMatchObject({ code: 'extraction-failed' });
+    ).rejects.toMatchObject({ code: 'invalid-extractor-response' });
     await expect(
       malformedFormats.getAnimation(
         'https://x.com/name/status/123456789',
         new AbortController().signal,
       ),
-    ).rejects.toMatchObject({ code: 'extraction-failed' });
+    ).rejects.toMatchObject({ code: 'invalid-extractor-response' });
+  });
+
+  it('distinguishes an extractor rejection from process startup failure', async () => {
+    const rejectedPost = new XMediaProvider({
+      config,
+      runner: runner('', 2, 'ERROR: extractor rejected the status'),
+    });
+    const processFailure = new XMediaProvider({
+      config,
+      runner: {
+        run: vi.fn(async () => {
+          throw new AppError('process-failed');
+        }),
+      },
+    });
+
+    await expect(
+      rejectedPost.getAnimation(
+        'https://x.com/name/status/123456789',
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'extractor-failed' });
+    await expect(
+      processFailure.getAnimation(
+        'https://x.com/name/status/123456789',
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'process-failed' });
   });
 
   it.each([

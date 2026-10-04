@@ -4,6 +4,8 @@ export type AppErrorCode =
   | 'post-inaccessible'
   | 'no-animation'
   | 'extraction-failed'
+  | 'extractor-failed'
+  | 'invalid-extractor-response'
   | 'download-failed'
   | 'conversion-failed'
   | 'invalid-gif'

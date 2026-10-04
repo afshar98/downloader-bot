@@ -61,6 +61,7 @@ export class XMediaProvider {
       if (cause instanceof AppError && (cause.code === 'cancelled' || cause.code === 'timed-out')) {
         throw cause;
       }
+      if (cause instanceof AppError) throw cause;
       throw new AppError('extraction-failed', 'X media extraction failed', { cause });
     }
 
@@ -68,14 +69,14 @@ export class XMediaProvider {
       if (/HTTP Error (?:401|403|404)|(?:private|protected|not available)/i.test(result.stderr)) {
         throw new AppError('post-inaccessible');
       }
-      throw new AppError('extraction-failed', 'X media extraction failed');
+      throw new AppError('extractor-failed', 'yt-dlp could not extract this post');
     }
 
     let metadata: unknown;
     try {
       metadata = JSON.parse(result.stdout);
     } catch (cause) {
-      throw new AppError('extraction-failed', 'X media metadata was invalid', { cause });
+      throw new AppError('invalid-extractor-response', 'X media metadata was invalid', { cause });
     }
 
     const formats = readFormats(metadata);
@@ -106,14 +107,13 @@ export class XMediaProvider {
 }
 
 function readFormats(value: unknown): Format[] {
-  if (!isRecord(value)) throw new AppError('extraction-failed', 'X media metadata was invalid');
+  if (!isRecord(value)) throw new AppError('invalid-extractor-response');
   const rawFormats = value['formats'];
   if (rawFormats === undefined || rawFormats === null) return [];
-  if (!Array.isArray(rawFormats))
-    throw new AppError('extraction-failed', 'X media formats were invalid');
+  if (!Array.isArray(rawFormats)) throw new AppError('invalid-extractor-response');
 
   return rawFormats.map((value) => {
-    if (!isRecord(value)) throw new AppError('extraction-failed', 'X media format was invalid');
+    if (!isRecord(value)) throw new AppError('invalid-extractor-response');
     const url = value['url'];
     const ext = value['ext'];
     const protocol = value['protocol'];
@@ -124,7 +124,7 @@ function readFormats(value: unknown): Format[] {
       typeof protocol !== 'string' ||
       typeof vcodec !== 'string'
     ) {
-      throw new AppError('extraction-failed', 'X media format was invalid');
+      throw new AppError('invalid-extractor-response');
     }
 
     return {
