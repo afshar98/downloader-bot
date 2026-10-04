@@ -151,12 +151,12 @@ Expected: all pass. Commit as `feat(x-provider): extract animated media safely`.
 - Create: `src/gif-converter.ts`, `src/gif-validator.ts`
 - Modify: `src/config.ts`, `src/application.ts`
 - Test: `tests/gif-converter.test.ts`, `tests/gif-validator.test.ts`
-- Fixtures: `tests/fixtures/media/valid.gif`, `tests/fixtures/media/not-gif.mp4`, `tests/fixtures/media/empty.gif`
+- Fixtures: `tests/fixtures/media/source.mp4`, `tests/fixtures/media/valid.gif`, `tests/fixtures/media/not-gif.mp4`, `tests/fixtures/media/empty.gif`
 
 **Interfaces:**
 - Consumes: Task 3 `SourceMedia`, downloaded source path, `ProcessRunner`, and `RequestWorkspace`.
-- Produces: `GifConverter.convert(sourcePath, gifPath, signal): Promise<{ path: string; sizeBytes: number }>` and `GifValidator.validate(path): Promise<{ width: number; height: number; frameCount: number }>`.
-- A validated artifact is represented as `GifMedia`; only this type can be passed to Task 5 delivery.
+- Produces: `GifConverter.convert(sourcePath, partialPath, gifPath, signal): Promise<GifMedia>` and `GifValidator.validate(path, signal): Promise<{ width: number; height: number; frameCount: number }>`.
+- `GifConverter` owns the convert → validate → atomic rename sequence. `GifMedia` is `{ path: string; sizeBytes: number; width: number; height: number; frameCount: number; container: 'gif' }`; only this verified type can be passed to Task 5 delivery.
 
 - [ ] **Step 1: Write failing GIF validator tests**
 
@@ -168,11 +168,11 @@ Check the GIF signature and use the configured trusted FFmpeg executable to deco
 
 - [ ] **Step 3: Write failing converter tests**
 
-Use an injected process runner to assert fixed deterministic GIF conversion arguments, successful artifact validation, and cleanup/rejection on timeout, non-zero exit, missing output, or oversized output.
+Use an injected process runner to assert fixed deterministic GIF conversion arguments, validated GIF finalization, and cleanup/rejection on timeout, non-zero exit, missing output, or oversized output.
 
 - [ ] **Step 4: Implement bounded FFmpeg conversion**
 
-Convert into a temporary partial path inside the request workspace with fixed maximum dimensions and frame rate; atomically finalize only after validation. Never rename or pass through source bytes as a GIF.
+Convert into the temporary partial path inside the request workspace with FFmpeg's output size cap, fixed maximum dimensions and frame rate. Decode and validate the full partial output, then atomically rename it to the delivery path. Never rename or pass through source bytes as a GIF.
 
 - [ ] **Step 5: Run Task 4 checks and commit**
 
@@ -187,7 +187,7 @@ Expected: all pass. Commit as `feat(media): convert animated sources to verified
 - Test: `tests/telegram-delivery.test.ts`, `tests/lifecycle.test.ts`, `tests/application.integration.test.ts`
 
 **Interfaces:**
-- Consumes: Task 2 bot factory; Task 3 `XMediaProvider`, `MediaDownloader`, and `RequestWorkspace`; Task 4 converter/validator and `GifMedia`.
+- Consumes: Task 2 bot factory; Task 3 `XMediaProvider`, `MediaDownloader`, and `RequestWorkspace`; Task 4 converter and `GifMedia`.
 - Produces: `GifDelivery.sendAnimation(chatId: string, media: GifMedia, signal: AbortSignal): Promise<void>`; tool checks that compare each configured executable's reported version token to its expected value; startup/shutdown entry points that validate configured tools before polling and stop polling, abort active work, await cleanup, then exit.
 
 - [ ] **Step 1: Write failing delivery tests**
