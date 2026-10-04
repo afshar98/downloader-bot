@@ -26,6 +26,7 @@ type Format = Readonly<{
   ext: string;
   protocol: string;
   vcodec: string;
+  videoExt: string;
   width: number;
   height: number;
   tbr: number;
@@ -117,21 +118,18 @@ function readFormats(value: unknown): Format[] {
     const url = value['url'];
     const ext = value['ext'];
     const protocol = value['protocol'];
-    const vcodec = value['vcodec'];
-    if (
-      typeof url !== 'string' ||
-      typeof ext !== 'string' ||
-      typeof protocol !== 'string' ||
-      typeof vcodec !== 'string'
-    ) {
+    if (typeof url !== 'string' || typeof ext !== 'string' || typeof protocol !== 'string') {
       throw new AppError('invalid-extractor-response');
     }
+    const vcodec = typeof value['vcodec'] === 'string' ? value['vcodec'] : 'none';
+    const videoExt = typeof value['video_ext'] === 'string' ? value['video_ext'] : 'none';
 
     return {
       url,
       ext,
       protocol,
       vcodec,
+      videoExt,
       width: optionalPositiveNumber(value['width']) ?? 0,
       height: optionalPositiveNumber(value['height']) ?? 0,
       tbr: optionalPositiveNumber(value['tbr']) ?? 0,
@@ -146,7 +144,7 @@ function isEligibleFormat(format: Format): boolean {
   return (
     format.ext === 'mp4' &&
     format.protocol === 'https' &&
-    format.vcodec !== 'none' &&
+    (format.vcodec !== 'none' || format.videoExt === 'mp4') &&
     format.width > 0 &&
     format.height > 0
   );

@@ -51,6 +51,38 @@ describe('XMediaProvider', () => {
     );
   });
 
+  it('ignores valid audio-only formats that do not report a video codec', async () => {
+    const audioOnlyFormat = {
+      url: 'https://video.twimg.com/ext_tw_video/1/audio.m4a',
+      ext: 'm4a',
+      protocol: 'https',
+      acodec: 'aac',
+      video_ext: 'none',
+    };
+    const directVideoFormat = {
+      url: 'https://video.twimg.com/ext_tw_video/1/direct.mp4',
+      ext: 'mp4',
+      protocol: 'https',
+      video_ext: 'mp4',
+      width: 356,
+      height: 270,
+      tbr: 256,
+    };
+    const provider = new XMediaProvider({
+      config,
+      runner: runner(JSON.stringify({ formats: [audioOnlyFormat, directVideoFormat] })),
+    });
+
+    await expect(
+      provider.getAnimation('https://x.com/name/status/123456789', new AbortController().signal),
+    ).resolves.toMatchObject({
+      url: directVideoFormat.url,
+      container: 'mp4',
+      width: 356,
+      height: 270,
+    });
+  });
+
   it('distinguishes a valid accessible post with no animation', async () => {
     const provider = new XMediaProvider({
       config,
