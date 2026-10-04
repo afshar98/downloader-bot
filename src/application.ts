@@ -16,9 +16,11 @@ export type ApplicationDependencies = Readonly<{
   handle(input: RequestInput, signal: AbortSignal): Promise<RequestResult>;
 }>;
 
-export function createApplication(dependencies: ApplicationDependencies): Readonly<{
+export type Application = Readonly<{
   handleRequest(input: RequestInput, signal: AbortSignal): Promise<RequestResult>;
-}> {
+}>;
+
+export function createApplication(dependencies: ApplicationDependencies): Application {
   return {
     handleRequest(input, signal) {
       return dependencies.handle(input, signal);

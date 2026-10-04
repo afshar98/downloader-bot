@@ -15,7 +15,7 @@ export type AppErrorCode =
 export class AppError extends Error {
   constructor(
     readonly code: AppErrorCode,
-    message = code,
+    message: string = code,
     options?: ErrorOptions,
   ) {
     super(message, options);
