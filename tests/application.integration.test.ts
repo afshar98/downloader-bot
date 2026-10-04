@@ -198,4 +198,28 @@ describe('GIF request application', () => {
       ),
     ).resolves.toBe('failed');
   });
+
+  it('reports only a safe stage and error code for an internal failure', async () => {
+    const onFailure = vi.fn();
+    const privateDetails = 'private diagnostic https://video.twimg.com/private?token=secret';
+    const { app } = setup({
+      provider: {
+        getAnimation: async () => {
+          throw new AppError('extraction-failed', privateDetails);
+        },
+      },
+      onFailure,
+    });
+
+    await expect(
+      app.handleRequest(
+        { canonicalUrl: 'https://x.com/user/status/123', chatId: 'private-chat-id' },
+        new AbortController().signal,
+      ),
+    ).resolves.toBe('failed');
+    expect(onFailure).toHaveBeenCalledWith({ stage: 'extract', code: 'extraction-failed' });
+    expect(JSON.stringify(onFailure.mock.calls)).not.toContain('private');
+    expect(JSON.stringify(onFailure.mock.calls)).not.toContain('secret');
+    expect(JSON.stringify(onFailure.mock.calls)).not.toContain('private-chat-id');
+  });
 });

@@ -40,6 +40,9 @@ export async function startBot(): Promise<void> {
           signal as Parameters<typeof bot.api.sendAnimation>[3],
         ),
     }),
+    onFailure: ({ stage, code }) => {
+      console.error(`[request-failed] stage=${stage} code=${code}`);
+    },
   });
   registerTelegramHandlers(bot, application);
   bot.catch(() => {
