@@ -5,11 +5,29 @@ import { GifValidator } from './gif-validator.js';
 import { ProcessRunner } from './process-runner.js';
 
 const VERIFIED_GIF: unique symbol = Symbol('verifiedGif');
+const MIB = 1024 * 1024;
+const MAX_GIF_BYTES = 2 * MIB;
 const CONVERSION_PROFILES = [
-  { fps: 15, dimension: 640 },
-  { fps: 10, dimension: 640 },
-  { fps: 8, dimension: 480 },
-  { fps: 6, dimension: 360 },
+  { fps: 15, dimension: 640, colors: 256 },
+  { fps: 15, dimension: 480, colors: 256 },
+  { fps: 15, dimension: 360, colors: 256 },
+  { fps: 15, dimension: 300, colors: 256 },
+  { fps: 15, dimension: 240, colors: 256 },
+  { fps: 15, dimension: 180, colors: 256 },
+  { fps: 15, dimension: 144, colors: 256 },
+  { fps: 15, dimension: 128, colors: 256 },
+  { fps: 15, dimension: 96, colors: 256 },
+  { fps: 15, dimension: 64, colors: 256 },
+  { fps: 10, dimension: 640, colors: 192 },
+  { fps: 8, dimension: 480, colors: 128 },
+  { fps: 6, dimension: 360, colors: 96 },
+  { fps: 5, dimension: 300, colors: 64 },
+  { fps: 4, dimension: 240, colors: 48 },
+  { fps: 3, dimension: 180, colors: 32 },
+  { fps: 2, dimension: 144, colors: 24 },
+  { fps: 2, dimension: 96, colors: 16 },
+  { fps: 2, dimension: 64, colors: 8 },
+  { fps: 2, dimension: 32, colors: 2 },
 ] as const;
 
 export type GifMedia = Readonly<{
@@ -40,7 +58,7 @@ export class GifConverter {
       options.validator ??
       new GifValidator({
         executable: options.executable,
-        maxBytes: options.maxGifBytes,
+        maxBytes: Math.min(options.maxGifBytes, MAX_GIF_BYTES),
         maxWidth: 640,
         maxHeight: 640,
         maxFrames: 450,
@@ -56,6 +74,7 @@ export class GifConverter {
     signal: AbortSignal,
   ): Promise<GifMedia> {
     if (signal.aborted) throw new AppError('cancelled');
+    const maxGifBytes = Math.min(this.options.maxGifBytes, MAX_GIF_BYTES);
     if (partialPath === gifPath || sourcePath === partialPath || sourcePath === gifPath) {
       throw new AppError('conversion-failed');
     }
@@ -94,13 +113,13 @@ export class GifConverter {
             sourcePath,
             '-an',
             '-filter_complex',
-            createFilter(profile.fps, profile.dimension),
+            createFilter(profile.fps, profile.dimension, profile.colors),
             '-map',
             '[out]',
             '-loop',
             '0',
             '-fs',
-            String(this.options.maxGifBytes),
+            String(maxGifBytes),
             '-f',
             'gif',
             partialPath,
@@ -115,14 +134,14 @@ export class GifConverter {
         if (!output || !output.isFile() || output.isSymbolicLink() || output.size === 0) {
           throw new AppError('conversion-failed');
         }
-        if (output.size > this.options.maxGifBytes) {
+        if (output.size >= maxGifBytes) {
           if (index === CONVERSION_PROFILES.length - 1) throw new AppError('media-too-large');
           continue;
         }
         if (result.exitCode !== 0) throw new AppError('conversion-failed');
         const validation = await this.validator.validate(partialPath, signal);
         const verifiedFile = await stat(partialPath);
-        if (verifiedFile.size > this.options.maxGifBytes) throw new AppError('media-too-large');
+        if (verifiedFile.size > maxGifBytes) throw new AppError('media-too-large');
         await rename(partialPath, gifPath);
         const media = {
           path: gifPath,
@@ -144,8 +163,8 @@ export class GifConverter {
   }
 }
 
-function createFilter(fps: number, dimension: number): string {
-  return `[0:v]fps=${fps},scale=w=min(${dimension}\\,iw):h=min(${dimension}\\,ih):force_original_aspect_ratio=decrease:flags=lanczos,split[palettein][gifin];[palettein]palettegen=max_colors=256[palette];[gifin][palette]paletteuse=dither=bayer:diff_mode=rectangle[out]`;
+function createFilter(fps: number, dimension: number, colors: number): string {
+  return `[0:v]fps=${fps},scale=w=min(${dimension}\\,iw):h=min(${dimension}\\,ih):force_original_aspect_ratio=decrease:flags=lanczos,split[palettein][gifin];[palettein]palettegen=max_colors=${colors}[palette];[gifin][palette]paletteuse=dither=bayer:diff_mode=rectangle[out]`;
 }
 
 export function isVerifiedGifMedia(value: unknown): value is GifMedia {

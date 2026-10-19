@@ -70,6 +70,38 @@ describe('GifConverter', () => {
     }
   });
 
+  it('caps GIF output at 2 MiB when the configured limit is higher', async () => {
+    const paths = await workspace();
+    const bytes = await readFile(VALID_GIF);
+    const run = vi.fn<RunnerImplementation>(async ({ args }) => {
+      await writeFile(args.at(-1) ?? '', bytes);
+      return { exitCode: 0, stdout: '', stderr: '' };
+    });
+    const converter = new GifConverter({
+      executable: '/usr/bin/ffmpeg',
+      maxSourceBytes: 1024 * 1024,
+      maxGifBytes: 5 * 1024 * 1024,
+      runner: { run } as ProcessRunner,
+      validator: validator(),
+    });
+
+    try {
+      await expect(
+        converter.convert(
+          paths.sourcePath,
+          paths.partialPath,
+          paths.gifPath,
+          new AbortController().signal,
+        ),
+      ).resolves.toMatchObject({ container: 'gif' });
+      expect(run).toHaveBeenCalledWith(
+        expect.objectContaining({ args: expect.arrayContaining(['-fs', String(2 * 1024 * 1024)]) }),
+      );
+    } finally {
+      await rm(paths.root, { recursive: true, force: true });
+    }
+  });
+
   it('caps encoded output and removes an oversized partial file', async () => {
     const paths = await workspace();
     const bytes = await readFile(VALID_GIF);
@@ -124,13 +156,61 @@ describe('GifConverter', () => {
 
     try {
       await expect(
-        converter.convert(paths.sourcePath, paths.partialPath, paths.gifPath, new AbortController().signal),
+        converter.convert(
+          paths.sourcePath,
+          paths.partialPath,
+          paths.gifPath,
+          new AbortController().signal,
+        ),
       ).resolves.toMatchObject({ container: 'gif', frameCount: 5 });
       expect(run).toHaveBeenCalledTimes(2);
       expect(run.mock.calls[0]?.[0].args.join(' ')).toContain('fps=15');
-      expect(run.mock.calls[1]?.[0].args.join(' ')).toContain('fps=10');
+      expect(run.mock.calls[1]?.[0].args.join(' ')).toContain('fps=15');
+      expect(run.mock.calls[1]?.[0].args.join(' ')).toContain('min(480');
       expect(gifValidator.validate).toHaveBeenCalledTimes(1);
       await expect(readFile(paths.gifPath)).resolves.toEqual(bytes);
+    } finally {
+      await rm(paths.root, { recursive: true, force: true });
+    }
+  });
+
+  it('reduces resolution before lowering frame rate when the GIF exceeds its cap', async () => {
+    const paths = await workspace();
+    const bytes = await readFile(VALID_GIF);
+    let attempt = 0;
+    const run = vi.fn<RunnerImplementation>(async ({ args }) => {
+      attempt++;
+      await writeFile(args.at(-1) ?? '', attempt < 3 ? Buffer.alloc(8192, 7) : bytes);
+      return { exitCode: 0, stdout: '', stderr: '' };
+    });
+    const converter = new GifConverter({
+      executable: '/usr/bin/ffmpeg',
+      maxSourceBytes: 1024 * 1024,
+      maxGifBytes: 4096,
+      runner: { run } as ProcessRunner,
+      validator: validator(),
+    });
+
+    try {
+      await expect(
+        converter.convert(
+          paths.sourcePath,
+          paths.partialPath,
+          paths.gifPath,
+          new AbortController().signal,
+        ),
+      ).resolves.toMatchObject({ container: 'gif' });
+      const filters = run.mock.calls.map(
+        (call) => call[0].args[call[0].args.indexOf('-filter_complex') + 1],
+      );
+      expect(filters).toHaveLength(3);
+      expect(filters[0]).toContain('fps=15');
+      expect(filters[1]).toContain('fps=15');
+      expect(filters[1]).toContain('min(480');
+      expect(filters[1]).toContain('max_colors=256');
+      expect(filters[2]).toContain('fps=15');
+      expect(filters[2]).toContain('min(360');
+      expect(filters[2]).toContain('max_colors=256');
     } finally {
       await rm(paths.root, { recursive: true, force: true });
     }
