@@ -52,6 +52,10 @@ export async function startBot(): Promise<void> {
         }
       } else if (progress.status === 'started') {
         console.info(`[request] stage=${progress.stage} started`);
+      } else if (progress.stage === 'delivery') {
+        console.info(
+          `[telegram-upload] completed size_bytes=${progress.sizeBytes} dimensions=${progress.width}x${progress.height} frames=${progress.frameCount} duration_ms=${progress.durationMs}`,
+        );
       } else {
         console.info(
           `[request] stage=${progress.stage} completed duration_ms=${progress.durationMs}`,

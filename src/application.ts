@@ -52,7 +52,20 @@ export type RequestProgress =
   | Readonly<{ stage: 'request'; status: 'started' }>
   | Readonly<{ stage: 'request'; status: 'completed'; result: RequestResult }>
   | Readonly<{ stage: RequestFailure['stage']; status: 'started' }>
-  | Readonly<{ stage: RequestFailure['stage']; status: 'completed'; durationMs: number }>;
+  | Readonly<{
+      stage: Exclude<RequestFailure['stage'], 'delivery'>;
+      status: 'completed';
+      durationMs: number;
+    }>
+  | Readonly<{
+      stage: 'delivery';
+      status: 'completed';
+      durationMs: number;
+      sizeBytes: number;
+      width: number;
+      height: number;
+      frameCount: number;
+    }>;
 
 export type GifApplication = Application & Readonly<{ shutdown(): Promise<void> }>;
 
@@ -112,7 +125,15 @@ export function createGifApplication(dependencies: GifApplicationDependencies): 
             stageStartedAt = startStage(dependencies.onProgress, 'delivery');
             stage = 'delivery';
             await dependencies.delivery.sendAnimation(input.chatId, gif, controller.signal);
-            finishStage(dependencies.onProgress, 'delivery', stageStartedAt);
+            reportProgress(dependencies.onProgress, {
+              stage: 'delivery',
+              status: 'completed',
+              durationMs: Date.now() - stageStartedAt,
+              sizeBytes: gif.sizeBytes,
+              width: gif.width,
+              height: gif.height,
+              frameCount: gif.frameCount,
+            });
             outcome = 'delivered';
           } catch (error) {
             outcome = resultForError(error, timedOut, externalSignal, shutdownSignal);
@@ -163,7 +184,7 @@ function startStage(
 
 function finishStage(
   onProgress: GifApplicationDependencies['onProgress'],
-  stage: RequestFailure['stage'],
+  stage: Exclude<RequestFailure['stage'], 'delivery'>,
   startedAt: number,
 ): void {
   reportProgress(onProgress, {
