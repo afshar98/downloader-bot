@@ -43,6 +43,21 @@ export async function startBot(): Promise<void> {
     onFailure: ({ stage, code }) => {
       console.error(`[request-failed] stage=${stage} code=${code}`);
     },
+    onProgress: (progress) => {
+      if (progress.stage === 'request') {
+        if (progress.status === 'started') {
+          console.info('[request] started');
+        } else {
+          console.info(`[request] completed result=${progress.result}`);
+        }
+      } else if (progress.status === 'started') {
+        console.info(`[request] stage=${progress.stage} started`);
+      } else {
+        console.info(
+          `[request] stage=${progress.stage} completed duration_ms=${progress.durationMs}`,
+        );
+      }
+    },
   });
   registerTelegramHandlers(bot, application);
   bot.catch(() => {

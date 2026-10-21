@@ -40,12 +40,19 @@ export type GifApplicationDependencies = Readonly<{
   converter: Pick<GifConverter, 'convert'>;
   delivery: Pick<GifDelivery, 'sendAnimation'>;
   onFailure?: (failure: RequestFailure) => void;
+  onProgress?: (progress: RequestProgress) => void;
 }>;
 
 export type RequestFailure = Readonly<{
   stage: 'admission' | 'workspace' | 'extract' | 'download' | 'convert' | 'delivery' | 'cleanup';
   code: AppErrorCode | 'unknown' | 'timed-out' | 'cleanup-failed';
 }>;
+
+export type RequestProgress =
+  | Readonly<{ stage: 'request'; status: 'started' }>
+  | Readonly<{ stage: 'request'; status: 'completed'; result: RequestResult }>
+  | Readonly<{ stage: RequestFailure['stage']; status: 'started' }>
+  | Readonly<{ stage: RequestFailure['stage']; status: 'completed'; durationMs: number }>;
 
 export type GifApplication = Application & Readonly<{ shutdown(): Promise<void> }>;
 
@@ -73,17 +80,27 @@ export function createGifApplication(dependencies: GifApplicationDependencies): 
           }, dependencies.jobTimeoutMs);
 
           try {
+            reportProgress(dependencies.onProgress, { stage: 'request', status: 'started' });
             if (controller.signal.aborted) throw new AppError('cancelled');
+            let stageStartedAt = startStage(dependencies.onProgress, 'admission');
             release = admission.acquire();
+            finishStage(dependencies.onProgress, 'admission', stageStartedAt);
+            stageStartedAt = startStage(dependencies.onProgress, 'workspace');
             stage = 'workspace';
             workspace = await dependencies.workspaceFactory();
+            finishStage(dependencies.onProgress, 'workspace', stageStartedAt);
+            stageStartedAt = startStage(dependencies.onProgress, 'extract');
             stage = 'extract';
             const source = await dependencies.provider.getAnimation(
               input.canonicalUrl,
               controller.signal,
             );
+            finishStage(dependencies.onProgress, 'extract', stageStartedAt);
+            stageStartedAt = startStage(dependencies.onProgress, 'download');
             stage = 'download';
             await dependencies.downloader.download(source, workspace.sourcePath, controller.signal);
+            finishStage(dependencies.onProgress, 'download', stageStartedAt);
+            stageStartedAt = startStage(dependencies.onProgress, 'convert');
             stage = 'convert';
             const gif = await dependencies.converter.convert(
               workspace.sourcePath,
@@ -91,8 +108,11 @@ export function createGifApplication(dependencies: GifApplicationDependencies): 
               workspace.gifPath,
               controller.signal,
             );
+            finishStage(dependencies.onProgress, 'convert', stageStartedAt);
+            stageStartedAt = startStage(dependencies.onProgress, 'delivery');
             stage = 'delivery';
             await dependencies.delivery.sendAnimation(input.chatId, gif, controller.signal);
+            finishStage(dependencies.onProgress, 'delivery', stageStartedAt);
             outcome = 'delivered';
           } catch (error) {
             outcome = resultForError(error, timedOut, externalSignal, shutdownSignal);
@@ -116,6 +136,11 @@ export function createGifApplication(dependencies: GifApplicationDependencies): 
             }
             release?.();
           }
+          reportProgress(dependencies.onProgress, {
+            stage: 'request',
+            status: 'completed',
+            result: outcome,
+          });
           return outcome;
         });
       } catch (error) {
@@ -126,6 +151,37 @@ export function createGifApplication(dependencies: GifApplicationDependencies): 
     },
     shutdown: () => lifecycle.shutdown(),
   };
+}
+
+function startStage(
+  onProgress: GifApplicationDependencies['onProgress'],
+  stage: RequestFailure['stage'],
+): number {
+  reportProgress(onProgress, { stage, status: 'started' });
+  return Date.now();
+}
+
+function finishStage(
+  onProgress: GifApplicationDependencies['onProgress'],
+  stage: RequestFailure['stage'],
+  startedAt: number,
+): void {
+  reportProgress(onProgress, {
+    stage,
+    status: 'completed',
+    durationMs: Date.now() - startedAt,
+  });
+}
+
+function reportProgress(
+  onProgress: GifApplicationDependencies['onProgress'],
+  progress: RequestProgress,
+): void {
+  try {
+    onProgress?.(progress);
+  } catch {
+    // Logging must not change the request result.
+  }
 }
 
 function safeErrorCode(error: unknown): AppErrorCode | 'unknown' {
